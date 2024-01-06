@@ -1,0 +1,29 @@
+<Bindings>
+  <Binding name="Toggle Engraving" category="RuneSets">
+    ToggleEngravingFrame()
+  </Binding>
+  <Binding name="RuneSet #1" category="RuneSets" header="SetBinds" default="NUMPAD1">
+    RuneSets.RunSet(1)
+  </Binding>
+  <Binding name="RuneSet #2" category="RuneSets" default="NUMPAD2">
+    RuneSets.RunSet(2)
+  </Binding>
+  <Binding name="RuneSet #3" category="RuneSets" default="NUMPAD3">
+    RuneSets.RunSet(3)
+  </Binding>
+  <Binding name="RuneSet #4" category="RuneSets" default="NUMPAD4">
+    RuneSets.RunSet(4)
+  </Binding>
+  <Binding name="RuneSet #5" category="RuneSets" default="NUMPAD5">
+    RuneSets.RunSet(5)
+  </Binding>
+  <Binding name="RuneSet #6" category="RuneSets" default="NUMPAD6">
+    RuneSets.RunSet(6)
+  </Binding>  
+  <Binding name="RuneSet #7" category="RuneSets" default="NUMPAD7">
+    RuneSets.RunSet(7)
+  </Binding> 
+  <Binding name="RuneSet #8" category="RuneSets" default="NUMPAD8">
+    RuneSets.RunSet(8)
+  </Binding>   
+</Bindings>

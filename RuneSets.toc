@@ -1,0 +1,9 @@
+## Interface: 11500
+## Title: RuneSets
+## Notes: Improvements to the Engraving Frame
+## IconTexture: Interface\Icons\INV_Misc_Rune_06
+## Version: 0.2
+## SavedVariables: RuneSetsDB
+
+embeds.xml
+SetsUI.xml
