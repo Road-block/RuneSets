@@ -1,15 +1,6 @@
 local addonName, addon = ...
 _G[addonName] = addon
-RuneSetsDB = RuneSetsDB or {["_edit"]=true,["_auto"]=true}
-local f = CreateFrame("Frame", UIParent)
-addon._event = f
-f.OnEvent = function(_,event,...)
-  return addon[event] and addon[event](addon,event,...)
-end
-f:SetScript("OnEvent", f.OnEvent)
-f:RegisterEvent("PLAYER_ENTERING_WORLD")
-f:RegisterEvent("ADDON_LOADED")
-f:RegisterEvent("UNIT_INVENTORY_CHANGED")
+local L = addon.L
 local LABEL_FONT_COLOR = CreateColor(0,128/255,128/255)
 addon._label = LABEL_FONT_COLOR:WrapTextInColorCode(addonName)
 local LDB = LibStub("LibDataBroker-1.1")
@@ -32,10 +23,53 @@ local ordered_slots = {
   INVSLOT_LEGS,
   INVSLOT_HAND,
 }
+local state_names = {
+  ["pvp"] = "PvP",
+  ["world-solo"] = "World-Solo",
+  ["world-party"] = "World-Party",
+  ["world-raid"] = "World-Raid",
+  ["dungeon"] = "Dungeon",
+  ["raid"] = "Raid",
+}
+local state_ordered = {
+  "pvp", "dungeon", "raid", "world-solo", "world-party", "world-raid"
+}
+local defaults = {
+  sets = {
+    {
+      name="<empty RuneSet>",
+      runes = {},
+    }
+  }, states =
+    {
+      ["pvp"] = -1,
+      ["world-solo"] = -1,
+      ["world-party"] = -1,
+      ["world-raid"] = -1,
+      ["dungeon"] = -1,
+      ["raid"] = -1,
+    }
+  }
 addon.utils = {}
 addon.Frame = {}
 addon.Minimap = {}
 addon.SetButton = {}
+
+RuneSetsDB = RuneSetsDB or {["_edit"]=true,["_auto"]=true}
+
+local f = CreateFrame("Frame", UIParent)
+addon._event = f
+f.OnEvent = function(_,event,...)
+  return addon[event] and addon[event](addon,event,...)
+end
+f:SetScript("OnEvent", f.OnEvent)
+f:RegisterEvent("ADDON_LOADED")
+f:RegisterEvent("PLAYER_ENTERING_WORLD")
+f:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+f:RegisterEvent("GROUP_LEFT")
+f:RegisterEvent("GROUP_FORMED")
+f:RegisterEvent("UNIT_INVENTORY_CHANGED")
+f:RegisterEvent("RUNE_UPDATED")
 
 function addon.utils.tCount(tbl)
   local count = 0
@@ -50,6 +84,55 @@ function addon.utils.Suppress(enable)
     SetCVar("Sound_EnableSFX", "0")
   else
     SetCVar("Sound_EnableSFX", "1")
+  end
+end
+
+function addon.utils.StatusChange()
+  local inInstance, instanceType = IsInInstance()
+  local inBG = InActiveBattlefield()
+  local worldPvP = IsInActiveWorldPVP("player")
+  local changed, status
+  if (instanceType and instanceType == "pvp") or inBG or worldPvP then
+    addon._currState = "pvp"
+  elseif IsInRaid() and GetNumGroupMembers()>1 then
+    status = "raid"
+  elseif IsInGroup() and GetNumGroupMembers()>1 then
+    status = "party"
+  elseif not IsInGroup() or GetNumGroupMembers()<2 then
+    status = "solo"
+  end
+  if status == "solo" and not inInstance then
+    addon._currState = "world-solo"
+  end
+  if (status == "party" or status == "raid") and not inInstance then
+    addon._currState = "world-"..status
+  end
+  if inInstance and instanceType == "party" then
+    addon._currState = "dungeon"
+  end
+  if inInstance and instanceType == "raid" then
+    addon._currState = "raid"
+  end
+  if not addon._currState then addon._currState = "unknown" end
+  if not addon._lastState or (addon._lastState ~= addon._currState) then
+    changed = true
+  else
+    changed = false
+  end
+  addon._lastState = addon._currState
+  return changed, addon._currState
+end
+
+local function ResizeRuneButtons()
+  RUNE_BUTTON_HEIGHT=20
+  EngravingFrame.scrollFrame.buttons[1]:SetHeight(20)
+  HybridScrollFrame_CreateButtons(EngravingFrame.scrollFrame, "RuneSpellButtonTemplate", 0, -1, "TOPLEFT", "TOPLEFT", 0, -1, "TOP", "BOTTOM")
+  for i,button in pairs(EngravingFrame.scrollFrame.buttons) do
+    if button.icon then
+      button.name:SetJustifyH("CENTER")
+      button.icon:SetSize(18,18)
+    end
+    button:Hide()
   end
 end
 
@@ -77,24 +160,7 @@ local function Setup()
       EngravingFrame:SetUserPlaced(false)
       EngravingFrame:SetPoint("TOPLEFT",CharacterFrame,"TOPRIGHT",-24,-70)
     end)
-  end
-  local old_EngravingFrame_UpdateRuneList = EngravingFrame_UpdateRuneList
-  EngravingFrame_UpdateRuneList = function(self)
-    RUNE_BUTTON_HEIGHT=20
-    for i,button in pairs(EngravingFrame.scrollFrame.buttons) do
-      if button.icon then
-        button.name:SetJustifyH("CENTER")
-        button.icon:SetSize(18,18)
-      end
-      button:Hide()
-    end
-    old_EngravingFrame_UpdateRuneList(self)
-    for i,button in pairs(EngravingFrame.scrollFrame.buttons) do
-      local runeid = button.skillLineAbilityID
-      if runeid and C_Engraving.IsRuneEquipped(runeid) then
-        button.selectedTex:Show()
-      end
-    end
+    ResizeRuneButtons()
   end
   EngravingFrameSpell_OnClick = function(self, button)
     if InCombatLockdown() then return end
@@ -115,6 +181,14 @@ local function Setup()
       end
     end
   end
+  hooksecurefunc("EngravingFrame_UpdateRuneList", function()
+    for i,button in pairs(EngravingFrame.scrollFrame.buttons) do
+      local runeid = button.skillLineAbilityID
+      if runeid and C_Engraving.IsRuneEquipped(runeid) then
+        button.selectedTex:Show()
+      end
+    end
+  end)
   hooksecurefunc(GameTooltip,"SetEngravingRune",function(self)
     GameTooltip:AddLine(GREEN_FONT_COLOR:WrapTextInColorCode("<Right-Click to Quick Apply>"))
   end)
@@ -133,14 +207,16 @@ local set_menu_list, set_menu_func = {}, function(btn)
   addon._dataBroker.text = btn.text
 end
 local function BuildMenu(obj)
-  local sets = addon.db[addon._playerKey]
+  local sets = addon.db[addon._playerKey].sets
   wipe(set_menu_list)
   for set_id,set in pairs(sets) do
     if set and set.includeInMenus then
       tinsert(set_menu_list,{ notCheckable = true, text=set.name, value=set_id, func = set_menu_func})
     end
   end
-  addon.Minimap.dropdown:ddEasyMenu(set_menu_list, "cursor", -50, 0, "menu")
+  if #set_menu_list > 0 then
+    addon.Minimap.dropdown:ddEasyMenu(set_menu_list, "cursor", -50, 0, "menu")
+  end
 end
 
 local function MinimapOnClick(obj, button)
@@ -189,13 +265,37 @@ end
 local function InitVars(isLogin, isReload)
   addon._playerKey = format("%s-%s",(UnitNameUnmodified("player")),(GetNormalizedRealmName()))
   addon.db = addon.db or RuneSetsDB
-  addon.db[addon._playerKey] = addon.db[addon._playerKey] or {
-    {
-      name="<empty RuneSet>",
-      runes = {},
-    }
-  }
+  addon.db[addon._playerKey] = addon.db[addon._playerKey] or defaults
   InitBroker(isLogin, isReload)
+end
+
+local function HasAutomation(status)
+  local states = addon.db[addon._playerKey].states
+  if status then
+    local set_id = states[status]
+    if set_id and set_id > 0 then
+      return true, set_id
+    end
+    return false
+  end
+  for state, set_id in pairs(states) do
+    if set_id and set_id > 0 then
+      return true
+    end
+  end
+  return false
+end
+
+local function AutomateSet(newStatus)
+  local sets = addon.db[addon._playerKey].sets
+  local hasSet, set_id = HasAutomation(newStatus)
+  local status_name = state_names[newStatus]
+  if hasSet and sets[set_id] then
+    addon._selectedSet = set_id
+    addon._dataBroker.text = sets[set_id].name
+    PlaySound(SOUNDKIT.TUTORIAL_POPUP)
+    UIErrorsFrame:AddMessage(format("%s: RuneSet %q Loaded",status_name, sets[set_id].name),0,1,1)
+  end
 end
 
 function addon:ADDON_LOADED(event,...)
@@ -214,11 +314,35 @@ function addon:PLAYER_ENTERING_WORLD(event,...)
     Setup()
     InitVars(isLogin, isReload)
   end
+  if HasAutomation() then
+    local statusChanged, newStatus = addon.utils.StatusChange()
+    if statusChanged then
+      AutomateSet(newStatus)
+    end
+  end
 end
+
+function addon:ZONE_CHANGED_NEW_AREA(event,...)
+  if HasAutomation() then
+    local statusChanged, newStatus = addon.utils.StatusChange()
+    if statusChanged then
+      AutomateSet(newStatus)
+    end
+  end
+end
+addon.GROUP_LEFT = addon.ZONE_CHANGED_NEW_AREA
+addon.GROUP_FORMED = addon.ZONE_CHANGED_NEW_AREA
 
 function addon:UNIT_INVENTORY_CHANGED(event,...)
   if ... == "player" and EngravingFrame:IsVisible() then
     EngravingFrame_UpdateRuneList(EngravingFrame)
+  end
+end
+
+function addon:RUNE_UPDATED(event,...)
+  local rune = ...
+  if EngravingFrame:IsVisible() then
+    addon.Frame.UpdateSetList(RuneSetsFrame)
   end
 end
 
@@ -241,11 +365,13 @@ function addon:NEW_RECIPE_LEARNED(event,...)
 end
 
 function addon.RunSet(set_id)
-  local sets = addon.db[addon._playerKey]
+  local sets = addon.db[addon._playerKey].sets
   local set, runes
   if type(set_id)=="number" then
     set = sets[set_id]
-    runes = set.runes
+    if set then
+      runes = set.runes
+    end
   elseif type(set_id)=="string" then
     for id, v in pairs(sets) do
       if strlower(v.name)==strlower(set_id) then
@@ -282,12 +408,12 @@ end
 function addon.SetButton.OnEnter(self)
   GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
   GameTooltip:SetText(addon._label)
-  local sets = addon.db[addon._playerKey]
+  local sets = addon.db[addon._playerKey].sets
   if addon.db._edit then
     GameTooltip:AddLine("Click runes on the left then click on this button to store them",nil,nil,nil,true)
     GameTooltip:AddLine("Double-click the Set name to edit",nil,nil,nil,true)
   else
-    GameTooltip:AddLine("Click until Set Runes are applied")
+    GameTooltip:AddLine("Click to apply Set Runes")
     local set_id = self:GetID()
     local runes = sets[set_id] and sets[set_id].runes
     if runes and addon.utils.tCount(runes)>0 then
@@ -299,17 +425,33 @@ function addon.SetButton.OnEnter(self)
         end
       end
     end
-    local binding = GetBindingKey("RuneSet #"..set_id)
-    if binding then
-      GameTooltip:AddDoubleLine("Keybind:",binding)
+    local bindingText = GetBindingText(GetBindingKey("RUNESET"..set_id))
+    if bindingText and bindingText~="" then
+      GameTooltip:AddDoubleLine("Keybind:",bindingText)
     end
   end
   GameTooltip:Show()
 end
+function addon.SetButton.ShowIncludeOption(option)
+  local set_id = option:GetParent():GetID()
+  local sets = addon.db[addon._playerKey].sets
+  local set = set_id and sets[set_id]
+  if set then
+    option:SetChecked(not not set.includeInMenus)
+  end
+end
+function addon.SetButton.IncludeOptionClicked(option)
+  local set_id = option:GetParent():GetID()
+  local sets = addon.db[addon._playerKey].sets
+  local set = set_id and sets[set_id]
+  if set then
+    set.includeInMenus = option:GetChecked()
+  end
+end
 function addon.SetButton.PreClick(self, button)
   if not addon.db._edit then return end
   local castInfo = C_Engraving.GetCurrentRuneCast()
-  local sets = addon.db[addon._playerKey]
+  local sets = addon.db[addon._playerKey].sets
   if castInfo and castInfo.equipmentSlot then
     local setID = self:GetID()
     local slot = castInfo.equipmentSlot
@@ -328,7 +470,7 @@ end
 function addon.SetButton.PostClick(self, button)
   if addon.db._edit then return end
   local setID = self:GetID()
-  local sets = addon.db[addon._playerKey]
+  local sets = addon.db[addon._playerKey].sets
   local runes = sets[setID] and sets[setID].runes
   if runes then
     for slot, rune in pairs(runes) do
@@ -350,7 +492,6 @@ function addon.SetButton.PostClick(self, button)
         end
       end
     end
-    addon.Frame.UpdateSetList(RuneSetsFrame)
   end
 end
 function addon.SetButton.NameClick(setbutton)
@@ -363,7 +504,7 @@ function addon.SetButton.NameClick(setbutton)
 end
 function addon.SetButton.NameGet(setbutton)
   local set_id = setbutton:GetID()
-  local sets = addon.db[addon._playerKey]
+  local sets = addon.db[addon._playerKey].sets
   if sets[set_id] then
     return sets[set_id].name
   end
@@ -371,7 +512,7 @@ function addon.SetButton.NameGet(setbutton)
 end
 function addon.SetButton.NameSet(setbutton)
   local set_id = setbutton:GetID()
-  local sets = addon.db[addon._playerKey]
+  local sets = addon.db[addon._playerKey].sets
   if sets[set_id] then
     local currText = strtrim(setbutton.editBox:GetText())
     sets[set_id].name = currText ~= "" and currText or "<empty RuneSet>"
@@ -381,7 +522,7 @@ function addon.SetButton.NameSet(setbutton)
   addon.Frame.UpdateSetList(RuneSetsFrame)
 end
 function addon.SetButton.DeleteSet(setbutton)
-  local sets = addon.db[addon._playerKey]
+  local sets = addon.db[addon._playerKey].sets
   local set_id = setbutton:GetID()
   if sets[set_id] then
     sets[set_id] = nil
@@ -390,8 +531,53 @@ function addon.SetButton.DeleteSet(setbutton)
   PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
 end
 function addon.SetButton.ScriptSet(setbutton)
-  print("automate "..tostring(setbutton:GetID()))
-  PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+  local set_id = setbutton:GetID()
+  local sets = addon.db[addon._playerKey].sets
+  local states = addon.db[addon._playerKey].states
+  local set = sets[set_id]
+  if set then
+    local name = set.name
+    local statekey,statename
+    for key,id in pairs(states) do
+      if id == set_id then
+        statekey = key
+        statename = state_names[statekey]
+        break
+      end
+    end
+    if not RuneSetsSetOptionFrame:IsShown() then
+      RuneSetsSetOptionFrame:SetID(set_id)
+      RuneSetsSetOptionFrame.setName.Text:SetText(name)
+      if statekey and statename then
+        UIDropDownMenu_SetSelectedValue(RuneSetsSetOptionFrame.statedd, statekey)
+        UIDropDownMenu_SetText(RuneSetsSetOptionFrame.statedd, statename)
+      else
+        UIDropDownMenu_SetSelectedValue(RuneSetsSetOptionFrame.statedd, -1)
+        UIDropDownMenu_SetText(RuneSetsSetOptionFrame.statedd, NONE)
+      end
+      RuneSetsSetOptionFrame:ClearAllPoints()
+      RuneSetsSetOptionFrame:SetPoint("TOPLEFT",setbutton,"TOPRIGHT",40,0)
+      RuneSetsSetOptionFrame:Show()
+    else
+      local option_id = RuneSetsSetOptionFrame:GetID()
+      if option_id and option_id == set_id then
+        RuneSetsSetOptionFrame:Hide()
+      else
+        RuneSetsSetOptionFrame:SetID(set_id)
+        RuneSetsSetOptionFrame.setName.Text:SetText(name)
+        if statekey and statename then
+          UIDropDownMenu_SetSelectedValue(RuneSetsSetOptionFrame.statedd, statekey)
+          UIDropDownMenu_SetText(RuneSetsSetOptionFrame.statedd, statename)
+        else
+          UIDropDownMenu_SetSelectedValue(RuneSetsSetOptionFrame.statedd, -1)
+          UIDropDownMenu_SetText(RuneSetsSetOptionFrame.statedd, NONE)
+        end
+        RuneSetsSetOptionFrame:ClearAllPoints()
+        RuneSetsSetOptionFrame:SetPoint("TOPLEFT",setbutton,"TOPRIGHT",40,0)
+      end
+    end
+    PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+  end
 end
 function addon.Frame.Toggle(self)
   if ( self.collapsed ) then
@@ -400,6 +586,24 @@ function addon.Frame.Toggle(self)
   else
     RuneSets.Frame.Collapse(self)
     PlaySound(SOUNDKIT.IG_QUEST_LIST_CLOSE)
+  end
+end
+
+function addon.Frame.Automate(self, arg1)
+  local dropdown = self:GetParent().dropdown
+  UIDropDownMenu_SetSelectedValue(dropdown, arg1)
+  UIDropDownMenu_SetText(dropdown, self.value)
+  local set_id = dropdown:GetParent():GetID()
+  local states = addon.db[addon._playerKey].states
+  if arg1 == -1 then
+    for state,id in pairs(states) do
+      if id == set_id then
+        states[state]=arg1
+        break
+      end
+    end
+  else
+    states[arg1]=set_id
   end
 end
 
@@ -436,6 +640,7 @@ function addon.Frame.Collapse(self)
   self.collapsed = true;
   self:SetPoint("TOPLEFT", EngravingFrame, "TOPLEFT",0,0)
   self.contentFrame:Hide()
+  RuneSetsSetOptionFrame:Hide()
   self:Lower()
 end
 function addon.Frame.UpdateSetList(self)
@@ -444,7 +649,7 @@ function addon.Frame.UpdateSetList(self)
   local scrollFrame = RuneSetsFrame.contentFrame.scrollFrame
   local buttons = scrollFrame.buttons
   local offset = HybridScrollFrame_GetOffset(scrollFrame)
-  local sets = addon.db[addon._playerKey]
+  local sets = addon.db[addon._playerKey].sets
   for buttonIndex = 1, #buttons do
     local button = buttons[buttonIndex]
     local set_id = buttonIndex + offset
@@ -499,11 +704,24 @@ function addon.Frame.UpdateSetList(self)
   local totalHeight = MAX_RUNESETS * RUNESET_BUTTON_HEIGHT
   HybridScrollFrame_Update(scrollFrame, totalHeight+10, 348)
 
-  --if numSets == 0 then
-    --RuneSetsFrame.contentFrame.scrollFrame.emptyText:Show()
-  --else
   RuneSetsFrame.contentFrame.scrollFrame.emptyText:Hide()
-  --end
+end
+function addon.Frame.StatesDDInit()
+  local info = UIDropDownMenu_CreateInfo()
+  info.func = addon.Frame.Automate
+
+  info.text = NONE
+  info.notCheckable = true
+  info.arg1 = -1
+  UIDropDownMenu_AddButton(info)
+
+  for _,state in ipairs(state_ordered) do
+    info.text = state_names[state]
+    info.notCheckable = true
+    info.arg1 = state
+    UIDropDownMenu_AddButton(info)
+  end
+
 end
 function addon.Frame.OnLoad(self)
   self:RegisterEvent("ADDON_LOADED")

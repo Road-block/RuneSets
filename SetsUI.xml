@@ -174,7 +174,111 @@
 	</Button>
 	
   <Frame name="RuneSetsSetOptionFrame" toplevel="true" parent="UIParent" enableMouse="true" hidden="true">
-
+    <Size x="150" y="90"/>
+    <Anchors>
+			<Anchor point="CENTER" relativeTo="UIParent" relativePoint="CENTER">
+				<Offset>
+					<AbsDimension x="-24" y="-70"/>
+				</Offset>
+			</Anchor>
+		</Anchors>
+		<Frames>
+			<Frame name="$parentSetName" parentKey="setName">
+				<Size x ="150" y ="20"/>
+				<Anchors>
+					<Anchor point="TOPLEFT" x="0" y="0"/>
+				</Anchors>
+				<Layers>
+					<Layer level="OVERLAY">
+						<FontString name="$parentText" inherits="GameFontNormal" justifyH="LEFT" parentKey="Text" text ="&lt;empty RuneSet&gt;">
+							<Anchors>
+								<Anchor point="TOP" x="0" y="8"/>
+							</Anchors>
+							<Color r="1" g="1" b="1"/>
+						</FontString>
+					</Layer>
+				</Layers>
+			</Frame>
+			<Frame name="RuneSetsSetOptionFrameBorder" parentKey="Border" inherits="TooltipBackdropTemplate">
+				<KeyValues>
+					<KeyValue key="backdropBorderColor" value="LIGHTGRAY_FONT_COLOR" type="global"/>
+					<KeyValue key="backdropColor" value="GRAY_FONT_COLOR" type="global"/>
+					<KeyValue key="backdropColorAlpha" value="0.8" type="global"/>
+				</KeyValues>
+				<Anchors>
+					<Anchor point="TOPLEFT" x="-10" y="21"/>
+					<Anchor point="BOTTOMRIGHT" x="10" y="-21"/>
+				</Anchors>
+			</Frame>
+			<Frame name="$parentSideInset" inherits="InsetFrameTemplate" parentKey="sideInset">
+				<Anchors>
+					<Anchor point="TOPLEFT" relativePoint="BOTTOMLEFT" x="0" y="80" />
+					<Anchor point="BOTTOMRIGHT" x="0" y="1"/>
+				</Anchors>
+			</Frame>
+			<Frame name="$parentStatus" parentKey="status">
+				<Size x ="150" y ="20"/>
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeTo="$parentSideInset" relativePoint="TOPLEFT" x="0" y="0"/>
+				</Anchors>
+				<Layers>
+					<Layer level="OVERLAY">
+						<FontString name="$parentText" inherits="GameFontNormal" justifyH="LEFT" parentKey="statusText" text ="Link Set to Status">
+							<Anchors>
+								<Anchor point="TOPLEFT" x="8" y="-5"/>
+							</Anchors>
+							<Color r="1" g="0.82" b="0"/>
+						</FontString>
+					</Layer>
+				</Layers>
+			</Frame>
+			<Frame name="$parentStatesDropDown" inherits="UIDropDownMenuTemplate" parentKey="statedd" enableMouse="true">
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeTo="$parentStatus" relativePoint="BOTTOMLEFT" x="-12" y="-2"/>
+				</Anchors>
+				<Scripts>
+					<OnLoad>
+						UIDropDownMenu_SetWidth(self, 120);
+						UIDropDownMenu_JustifyText(self, "LEFT")
+						UIDropDownMenu_SetText(self, NONE)
+						UIDropDownMenu_Initialize(self, RuneSets.Frame.StatesDDInit)
+					</OnLoad>
+				</Scripts>
+			</Frame>
+      <CheckButton name="$parentInclude" parentKey="include" motionScriptsWhileDisabled="true" inherits="UICheckButtonTemplate">
+				<Size>
+			    <AbsDimension x="20" y="20"/>
+		    </Size>
+		    <Anchors>
+			    <Anchor point="TOPLEFT" relativeTo="$parentStatesDropDown" x="20" y="-35"/>
+		    </Anchors>
+					<Scripts>
+						<OnLoad>
+							_G[self:GetName().."Text"]:SetText("Include in Menus")
+						</OnLoad>
+						<OnShow>
+							RuneSets.SetButton.ShowIncludeOption(self)
+						</OnShow>
+						<OnClick>
+							RuneSets.SetButton.IncludeOptionClicked(self)
+						</OnClick>
+						<OnEnter>
+							GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
+							GameTooltip:SetText("Menus", nil, nil, nil, nil, true)
+							GameTooltip:AddLine("Add to Quickload Popup and Minimap Dropdown",1,1,1)
+							GameTooltip:Show();
+						</OnEnter>
+						<OnLeave function="GameTooltip_Hide"/>
+					</Scripts>
+	    </CheckButton>
+			<Button name="RuneSetsSetOptionFrameCloseButton" inherits="UIPanelCloseButton">
+				<Anchors>
+					<Anchor point="TOPRIGHT" relativeTo="$parentBorder" x="0" y="0"/>
+				</Anchors>
+			</Button>
+		</Frames>
+		<Scripts>
+		</Scripts>
   </Frame>
 
 	<Frame name="RuneSetsFrame" toplevel="true" parent="UIParent" movable="true" enableMouse="true" hidden="true">
