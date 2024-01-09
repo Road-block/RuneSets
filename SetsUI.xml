@@ -105,7 +105,7 @@
 					</OnClick>
 					<OnEnter>
 						GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-						GameTooltip:SetText("Clear this RuneSet")
+						GameTooltip:SetText("Clear this Set")
 					</OnEnter>
 					<OnLeave>
 						GameTooltip:Hide();
@@ -135,7 +135,7 @@
 					</OnClick>
 					<OnEnter>
 						GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-						GameTooltip:SetText("Configure Events")
+						GameTooltip:SetText("Configure")
 					</OnEnter>
 					<OnLeave>
 						GameTooltip:Hide();

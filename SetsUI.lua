@@ -87,6 +87,72 @@ function addon.utils.Suppress(enable)
   end
 end
 
+function addon.utils.Print(msg)
+  local chatFrame = (SELECTED_CHAT_FRAME or DEFAULT_CHAT_FRAME)
+  chatFrame:AddMessage(format("%s: %s",addon._label,msg))
+end
+
+function addon.utils.FirstMatchedSet()
+  local sets = addon.db[addon._playerKey].sets
+  if not sets or #sets==0 then return false end
+  local own = {}
+  local matched
+  for _,slot in ipairs(ordered_slots) do
+    local runeInfo = C_Engraving.GetRuneForEquipmentSlot(slot)
+    own[slot] = runeInfo and runeInfo.skillLineAbilityID or nil
+  end
+  if addon.utils.tCount(own) > 0 then
+    local matched_id, matched_name
+    for set_id, set in pairs(sets) do
+      matched_id, matched_name = set_id, set.name
+      local runes = set.runes
+      for slot, runeid in pairs(own) do
+        if not runes[slot] or runes[slot][1] ~= runeid then
+          matched_id, matched_name = nil, nil
+          break
+        end
+      end
+      if matched_id and matched_name then
+        return matched_id, matched_name
+      end
+    end
+    return false
+  else
+    return false
+  end
+end
+
+function addon.utils.IsSetEquipped(set_query)
+  local sets = addon.db[addon._playerKey].sets
+  if not sets or #sets==0 then return false end
+  local set_id, set
+  if type(set_query)=="number" then
+    set_id = set_query
+    set = sets[set_id]
+  elseif type(set_query)=="string" then
+    for id, sset in pairs(sets) do
+      if strlower(sset.name) == strlower(set_query) then
+        set_id = id
+        set = sset
+        break
+      end
+    end
+  end
+  if set then
+    local runes = set.runes
+    local equiphash, sethash
+    for _,slot in ipairs(ordered_slots) do
+      local runeInfo = C_Engraving.GetRuneForEquipmentSlot(slot)
+      local runeid = runeInfo and runeInfo.skillLineAbilityID
+      local setrune = runes[slot][1]
+      equiphash = equiphash and format("%s:%s",equiphash,(runeid or 0)) or tostring(runeid or 0)
+      sethash = sethash and format("%s:%s",sethash,(setrune or 0)) or tostring(setrune or 0)
+    end
+    return (equiphash==sethash and equiphash:gsub("[0:]","")~="")
+  end
+  return false
+end
+
 function addon.utils.StatusChange()
   local inInstance, instanceType = IsInInstance()
   local inBG = InActiveBattlefield()
@@ -208,6 +274,7 @@ local set_menu_list, set_menu_func = {}, function(btn)
 end
 local function BuildMenu(obj)
   local sets = addon.db[addon._playerKey].sets
+  if not sets or #sets==0 then return end
   wipe(set_menu_list)
   for set_id,set in pairs(sets) do
     if set and set.includeInMenus then
@@ -288,13 +355,53 @@ end
 
 local function AutomateSet(newStatus)
   local sets = addon.db[addon._playerKey].sets
+  if not sets or #sets==0 then return false end
   local hasSet, set_id = HasAutomation(newStatus)
   local status_name = state_names[newStatus]
-  if hasSet and sets[set_id] then
+  local set = sets[set_id]
+  if hasSet and set and not addon.utils.IsSetEquipped(set_id) then
     addon._selectedSet = set_id
-    addon._dataBroker.text = sets[set_id].name
+    addon._dataBroker.text = set.name
     PlaySound(SOUNDKIT.TUTORIAL_POPUP)
-    UIErrorsFrame:AddMessage(format("%s: RuneSet %q Loaded",status_name, sets[set_id].name),0,1,1)
+    RaidNotice_AddMessage(RaidBossEmoteFrame, format("%s: RuneSet %q Prepped",status_name, set.name),ChatTypeInfo["RAID_WARNING"], 15)
+    addon.utils.Print(format("%s: RuneSet %q Prepped",status_name, set.name))
+    return true
+  end
+end
+
+local function ConfirmDelete(setname,set_id)
+  if not StaticPopupDialogs["RUNESETS_CONFIRM_DELETE"] then
+    StaticPopupDialogs["RUNESETS_CONFIRM_DELETE"] = {}
+  end
+  local t = StaticPopupDialogs["RUNESETS_CONFIRM_DELETE"]
+  for k in pairs(t) do
+    t[k] = nil
+  end
+  t.text = format("You are removing %q Rune Set",setname)
+  t.button1 = ACCEPT
+  t.button2 = CANCEL
+  t.preferredIndex = STATICPOPUP_NUMDIALOGS
+  t.OnAccept = function(self,data)
+    local set_id = data
+    local states = addon.db[addon._playerKey].states
+    local sets = addon.db[addon._playerKey].sets
+    sets[set_id] = nil
+    for state,id in pairs(states) do
+      if id == set_id then
+        states[state] = -1
+        break
+      end
+    end
+    addon.Frame.UpdateSetList(RuneSetsFrame)
+  end
+  t.OnCancel = function(self,data)
+  end
+  t.timeout = 0
+  t.whileDead = 1
+  t.hideOnEscape = 1
+  local dialog = StaticPopup_Show("RUNESETS_CONFIRM_DELETE",setname)
+  if dialog then
+    dialog.data = set_id
   end
 end
 
@@ -353,8 +460,17 @@ function addon:PLAYER_EQUIPMENT_CHANGED(event,...)
     if not (runeInfo and runeInfo.skillLineAbilityID) then
       local ownedSlotRunes = C_Engraving.GetRunesForCategory(slot, true) -- owned only
       -- maybe we do a quickload popout down the road for now just show Engraving
-      if not EngravingFrame:IsVisible() then
-        ToggleEngravingFrame()
+      if #ownedSlotRunes > 0 then
+        local prompted
+        if HasAutomation() then
+          local statusChanged, newStatus = addon.utils.StatusChange()
+          prompted = AutomateSet(newStatus)
+        end
+        if not prompted then
+          if not EngravingFrame:IsVisible() then
+            ToggleEngravingFrame()
+          end
+        end
       end
     end
   end
@@ -366,6 +482,7 @@ end
 
 function addon.RunSet(set_id)
   local sets = addon.db[addon._playerKey].sets
+  if not sets or #sets==0 then return end
   local set, runes
   if type(set_id)=="number" then
     set = sets[set_id]
@@ -415,19 +532,21 @@ function addon.SetButton.OnEnter(self)
   else
     GameTooltip:AddLine("Click to apply Set Runes")
     local set_id = self:GetID()
-    local runes = sets[set_id] and sets[set_id].runes
-    if runes and addon.utils.tCount(runes)>0 then
-      for _,slot in ipairs(ordered_slots) do
-        if runes[slot] then
-          GameTooltip:AddLine(runes[slot][3],1,1,1)
-        else
-          GameTooltip:AddLine(EMPTY)
+    if sets and #sets>0 then
+      local runes = sets[set_id] and sets[set_id].runes
+      if runes and addon.utils.tCount(runes)>0 then
+        for _,slot in ipairs(ordered_slots) do
+          if runes[slot] then
+            GameTooltip:AddLine(runes[slot][3],1,1,1)
+          else
+            GameTooltip:AddLine(EMPTY)
+          end
         end
       end
-    end
-    local bindingText = GetBindingText(GetBindingKey("RUNESET"..set_id))
-    if bindingText and bindingText~="" then
-      GameTooltip:AddDoubleLine("Keybind:",bindingText)
+      local bindingText = GetBindingText(GetBindingKey("RUNESET"..set_id))
+      if bindingText and bindingText~="" then
+        GameTooltip:AddDoubleLine("Keybind:",bindingText)
+      end
     end
   end
   GameTooltip:Show()
@@ -435,6 +554,7 @@ end
 function addon.SetButton.ShowIncludeOption(option)
   local set_id = option:GetParent():GetID()
   local sets = addon.db[addon._playerKey].sets
+  if not sets or #sets==0 then return end
   local set = set_id and sets[set_id]
   if set then
     option:SetChecked(not not set.includeInMenus)
@@ -443,6 +563,7 @@ end
 function addon.SetButton.IncludeOptionClicked(option)
   local set_id = option:GetParent():GetID()
   local sets = addon.db[addon._playerKey].sets
+  if not sets or #sets==0 then return end
   local set = set_id and sets[set_id]
   if set then
     set.includeInMenus = option:GetChecked()
@@ -471,6 +592,7 @@ function addon.SetButton.PostClick(self, button)
   if addon.db._edit then return end
   local setID = self:GetID()
   local sets = addon.db[addon._playerKey].sets
+  if not sets or #sets==0 then return end
   local runes = sets[setID] and sets[setID].runes
   if runes then
     for slot, rune in pairs(runes) do
@@ -505,6 +627,7 @@ end
 function addon.SetButton.NameGet(setbutton)
   local set_id = setbutton:GetID()
   local sets = addon.db[addon._playerKey].sets
+  if not sets or #sets==0 then return "<empty RuneSet>" end
   if sets[set_id] then
     return sets[set_id].name
   end
@@ -513,7 +636,7 @@ end
 function addon.SetButton.NameSet(setbutton)
   local set_id = setbutton:GetID()
   local sets = addon.db[addon._playerKey].sets
-  if sets[set_id] then
+  if sets and sets[set_id] then
     local currText = strtrim(setbutton.editBox:GetText())
     sets[set_id].name = currText ~= "" and currText or "<empty RuneSet>"
   end
@@ -524,9 +647,10 @@ end
 function addon.SetButton.DeleteSet(setbutton)
   local sets = addon.db[addon._playerKey].sets
   local set_id = setbutton:GetID()
-  if sets[set_id] then
-    sets[set_id] = nil
-    addon.Frame.UpdateSetList(RuneSetsFrame)
+  local set = sets and sets[set_id]
+  if set then
+    local setname = set.name
+    ConfirmDelete(setname, set_id)
   end
   PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
 end
@@ -534,7 +658,7 @@ function addon.SetButton.ScriptSet(setbutton)
   local set_id = setbutton:GetID()
   local sets = addon.db[addon._playerKey].sets
   local states = addon.db[addon._playerKey].states
-  local set = sets[set_id]
+  local set = sets and sets[set_id]
   if set then
     local name = set.name
     local statekey,statename
@@ -595,15 +719,23 @@ function addon.Frame.Automate(self, arg1)
   UIDropDownMenu_SetText(dropdown, self.value)
   local set_id = dropdown:GetParent():GetID()
   local states = addon.db[addon._playerKey].states
-  if arg1 == -1 then
-    for state,id in pairs(states) do
-      if id == set_id then
-        states[state]=arg1
-        break
+  if set_id then
+    if arg1 == -1 then
+      for state,id in pairs(states) do
+        if id == set_id then
+          states[state]=arg1
+          break
+        end
+      end
+    else
+      if states[arg1]~=set_id then
+        states[arg1]=set_id
+        if HasAutomation() then
+          local statusChanged, newStatus = addon.utils.StatusChange()
+          AutomateSet(newStatus)
+        end
       end
     end
-  else
-    states[arg1]=set_id
   end
 end
 
@@ -656,7 +788,7 @@ function addon.Frame.UpdateSetList(self)
     button:SetID(set_id)
     local differs
     if set_id <= MAX_RUNESETS then
-      local set = sets[set_id]
+      local set = sets and sets[set_id]
       if set then
         button.name:SetText(set.name)
         local runes = sets[set_id].runes
@@ -750,10 +882,13 @@ end
 SLASH_RUNESETS1 = "/engraveme"
 SLASH_RUNESETS2 = "/runeme"
 SlashCmdList["RUNESETS"] = function(msg)
-  local msg = tonumber(msg or "")
-  if not msg then
-    ToggleEngravingFrame()
-  else
+  local msg = (msg or ""):trim()
+  local set_id = tonumber(msg)
+  if set_id then
+    addon.RunSet(set_id)
+  elseif #msg > 0 then
     addon.RunSet(msg)
+  else
+    ToggleEngravingFrame()
   end
 end
