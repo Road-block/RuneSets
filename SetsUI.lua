@@ -24,12 +24,12 @@ local ordered_slots = {
   INVSLOT_HAND,
 }
 local state_names = {
-  ["pvp"] = "PvP",
-  ["world-solo"] = "World-Solo",
-  ["world-party"] = "World-Party",
-  ["world-raid"] = "World-Raid",
-  ["dungeon"] = "Dungeon",
-  ["raid"] = "Raid",
+  ["pvp"] = L["PvP"],
+  ["world-solo"] = L["World-Solo"],
+  ["world-party"] = L["World-Party"],
+  ["world-raid"] = L["World-Raid"],
+  ["dungeon"] = L["Dungeon"],
+  ["raid"] = L["Raid"],
 }
 local state_ordered = {
   "pvp", "dungeon", "raid", "world-solo", "world-party", "world-raid"
@@ -37,7 +37,7 @@ local state_ordered = {
 local defaults = {
   sets = {
     {
-      name="<empty RuneSet>",
+      name=L["<empty RuneSet>"],
       runes = {},
     }
   }, states =
@@ -202,6 +202,14 @@ local function ResizeRuneButtons()
   end
 end
 
+local function CacheRunes()
+  C_Engraving.RefreshRunesList()
+  local categories = C_Engraving.GetRuneCategories(true, true)
+  for _, category in ipairs(categories) do
+    local runes = C_Engraving.GetRunesForCategory(category, true)
+  end
+end
+
 local function Setup()
   if ( not C_AddOns.IsAddOnLoaded("Blizzard_EngravingUI") ) then
     UIParentLoadAddOn("Blizzard_EngravingUI")
@@ -220,11 +228,13 @@ local function Setup()
     EngravingFrame.Border:HookScript("OnDragStop",function(self,button)
      EngravingFrame:StopMovingOrSizing()
     end)
-    EngravingFrame:HookScript("OnHide",function(self)
-      EngravingFrame:StopMovingOrSizing()
-      EngravingFrame:ClearAllPoints()
-      EngravingFrame:SetUserPlaced(false)
-      EngravingFrame:SetPoint("TOPLEFT",CharacterFrame,"TOPRIGHT",-24,-70)
+    EngravingFrame:HookScript("OnShow",function(self)
+      if CharacterFrame:IsShown() then
+        EngravingFrame:StopMovingOrSizing()
+        EngravingFrame:ClearAllPoints()
+        EngravingFrame:SetUserPlaced(false)
+        EngravingFrame:SetPoint("TOPLEFT",CharacterFrame,"TOPRIGHT",-24,-70)
+      end
     end)
     ResizeRuneButtons()
   end
@@ -256,7 +266,7 @@ local function Setup()
     end
   end)
   hooksecurefunc(GameTooltip,"SetEngravingRune",function(self)
-    GameTooltip:AddLine(GREEN_FONT_COLOR:WrapTextInColorCode("<Right-Click to Quick Apply>"))
+    GameTooltip:AddLine(GREEN_FONT_COLOR:WrapTextInColorCode(L["<Right-Click to Quick Apply>"]))
   end)
 end
 
@@ -304,12 +314,12 @@ end
 local function MinimapOnEnter(tooltip)
   tooltip:SetText(addon._label)
   if addon._selectedSet then
-    tooltip:AddDoubleLine("Click:","Apply Set",nil,nil,nil,1,1,1)
-    tooltip:AddDoubleLine("Middle-Click:","Clear Selected",nil,nil,nil,1,1,1)
+    tooltip:AddDoubleLine(L["Click:"],L["Apply Set"],nil,nil,nil,1,1,1)
+    tooltip:AddDoubleLine(L["Middle-Click:"],L["Clear Selected"],nil,nil,nil,1,1,1)
   else
-    tooltip:AddDoubleLine("Click:","Select Set",nil,nil,nil,1,1,1)
+    tooltip:AddDoubleLine(L["Click:"],L["Select Set"],nil,nil,nil,1,1,1)
   end
-  tooltip:AddDoubleLine("Right-Click:","Toggle Engraving Frame",nil,nil,nil,1,1,1)
+  tooltip:AddDoubleLine(L["Right-Click:"],L["Toggle Engraving Frame"],nil,nil,nil,1,1,1)
 end
 
 local function InitBroker(isLogin, isReload)
@@ -363,8 +373,8 @@ local function AutomateSet(newStatus)
     addon._selectedSet = set_id
     addon._dataBroker.text = set.name
     PlaySound(SOUNDKIT.TUTORIAL_POPUP)
-    RaidNotice_AddMessage(RaidBossEmoteFrame, format("%s: RuneSet %q Prepped",status_name, set.name),ChatTypeInfo["RAID_WARNING"], 15)
-    addon.utils.Print(format("%s: RuneSet %q Prepped",status_name, set.name))
+    RaidNotice_AddMessage(RaidBossEmoteFrame, format(L["%s: RuneSet %q Ready"],status_name, set.name),ChatTypeInfo["RAID_WARNING"], 15)
+    addon.utils.Print(format(L["%s: RuneSet %q Ready"],status_name, set.name))
     return true
   end
 end
@@ -377,7 +387,7 @@ local function ConfirmDelete(setname,set_id)
   for k in pairs(t) do
     t[k] = nil
   end
-  t.text = format("You are removing %q Rune Set",setname)
+  t.text = format(L["You are removing %q Rune Set"],setname)
   t.button1 = ACCEPT
   t.button2 = CANCEL
   t.preferredIndex = STATICPOPUP_NUMDIALOGS
@@ -420,6 +430,7 @@ function addon:PLAYER_ENTERING_WORLD(event,...)
   if isLogin or isReload then
     Setup()
     InitVars(isLogin, isReload)
+    CacheRunes()
   end
   if HasAutomation() then
     local statusChanged, newStatus = addon.utils.StatusChange()
@@ -527,10 +538,10 @@ function addon.SetButton.OnEnter(self)
   GameTooltip:SetText(addon._label)
   local sets = addon.db[addon._playerKey].sets
   if addon.db._edit then
-    GameTooltip:AddLine("Click runes on the left then click on this button to store them",nil,nil,nil,true)
-    GameTooltip:AddLine("Double-click the Set name to edit",nil,nil,nil,true)
+    GameTooltip:AddLine(L["Click runes on the left then click on this button to store them"],nil,nil,nil,true)
+    GameTooltip:AddLine(L["Double-click the Set name to edit"],nil,nil,nil,true)
   else
-    GameTooltip:AddLine("Click to apply Set Runes")
+    GameTooltip:AddLine(L["Click to apply Set Runes"])
     local set_id = self:GetID()
     if sets and #sets>0 then
       local runes = sets[set_id] and sets[set_id].runes
@@ -580,7 +591,7 @@ function addon.SetButton.PreClick(self, button)
     local name = castInfo.name
     local icon = castInfo.iconTexture
     self[slotid_to_icon[slot]]:SetTexture(icon)
-    sets[setID] = sets[setID] or {name = "<empty RuneSet>", runes = {}}
+    sets[setID] = sets[setID] or {name = L["<empty RuneSet>"], runes = {}}
     sets[setID].runes[slot] = {skillLineAbilityID,icon,name}
     PlaySound(SOUNDKIT.IG_ABILITY_ICON_DROP)
     if sets[setID].includeInMenus == nil then -- respect false setting
@@ -627,18 +638,18 @@ end
 function addon.SetButton.NameGet(setbutton)
   local set_id = setbutton:GetID()
   local sets = addon.db[addon._playerKey].sets
-  if not sets or #sets==0 then return "<empty RuneSet>" end
+  if not sets or #sets==0 then return L["<empty RuneSet>"] end
   if sets[set_id] then
     return sets[set_id].name
   end
-  return "<empty RuneSet>"
+  return L["<empty RuneSet>"]
 end
 function addon.SetButton.NameSet(setbutton)
   local set_id = setbutton:GetID()
   local sets = addon.db[addon._playerKey].sets
   if sets and sets[set_id] then
     local currText = strtrim(setbutton.editBox:GetText())
-    sets[set_id].name = currText ~= "" and currText or "<empty RuneSet>"
+    sets[set_id].name = currText ~= "" and currText or L["<empty RuneSet>"]
   end
   setbutton.editBox:Hide()
   PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_OFF)
@@ -810,7 +821,7 @@ function addon.Frame.UpdateSetList(self)
         end
         button.iconPlay:SetDesaturated(false)
       else
-        button.name:SetText("<empty RuneSet>")
+        button.name:SetText(L["<empty RuneSet>"])
         for slot, key in pairs(slotid_to_icon) do
           button[key]:SetTexture(icon_to_tex[key])
         end
@@ -881,6 +892,7 @@ end
 
 SLASH_RUNESETS1 = "/engraveme"
 SLASH_RUNESETS2 = "/runeme"
+SLASH_RUNESETS3 = "/"..addonName:lower()
 SlashCmdList["RUNESETS"] = function(msg)
   local msg = (msg or ""):trim()
   local set_id = tonumber(msg)

@@ -105,7 +105,7 @@
 					</OnClick>
 					<OnEnter>
 						GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-						GameTooltip:SetText("Clear this Set")
+						GameTooltip:SetText(RuneSets.L["Clear this Set"])
 					</OnEnter>
 					<OnLeave>
 						GameTooltip:Hide();
@@ -135,7 +135,7 @@
 					</OnClick>
 					<OnEnter>
 						GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-						GameTooltip:SetText("Configure")
+						GameTooltip:SetText(RuneSets.L["Configure"])
 					</OnEnter>
 					<OnLeave>
 						GameTooltip:Hide();
@@ -190,7 +190,7 @@
 				</Anchors>
 				<Layers>
 					<Layer level="OVERLAY">
-						<FontString name="$parentText" inherits="GameFontNormal" justifyH="LEFT" parentKey="Text" text ="&lt;empty RuneSet&gt;">
+						<FontString name="$parentText" inherits="GameFontNormal" justifyH="LEFT" parentKey="Text" text="">
 							<Anchors>
 								<Anchor point="TOP" x="0" y="8"/>
 							</Anchors>
@@ -223,11 +223,16 @@
 				</Anchors>
 				<Layers>
 					<Layer level="OVERLAY">
-						<FontString name="$parentText" inherits="GameFontNormal" justifyH="LEFT" parentKey="statusText" text ="Link Set to Status">
+						<FontString name="$parentText" inherits="GameFontNormal" justifyH="LEFT" parentKey="statusText" text="">
 							<Anchors>
 								<Anchor point="TOPLEFT" x="8" y="-5"/>
 							</Anchors>
 							<Color r="1" g="0.82" b="0"/>
+							<Scripts>
+								<OnLoad>
+									self:SetText(RuneSets.L["Link Set to Status"])
+								</OnLoad>
+							</Scripts>
 						</FontString>
 					</Layer>
 				</Layers>
@@ -254,7 +259,7 @@
 		    </Anchors>
 					<Scripts>
 						<OnLoad>
-							_G[self:GetName().."Text"]:SetText("Include in Menus")
+							_G[self:GetName().."Text"]:SetText(RuneSets.L["Include in Menus"])
 						</OnLoad>
 						<OnShow>
 							RuneSets.SetButton.ShowIncludeOption(self)
@@ -264,8 +269,8 @@
 						</OnClick>
 						<OnEnter>
 							GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
-							GameTooltip:SetText("Menus", nil, nil, nil, nil, true)
-							GameTooltip:AddLine("Add to Quickload Popup and Minimap Dropdown",1,1,1)
+							GameTooltip:SetText(RuneSets.L["Menus"], nil, nil, nil, nil, true)
+							GameTooltip:AddLine(RuneSets.L["Add to Quickload Popup and Minimap Dropdown"],1,1,1)
 							GameTooltip:Show();
 						</OnEnter>
 						<OnLeave function="GameTooltip_Hide"/>
@@ -360,7 +365,7 @@
 				    </Anchors>
 							<Scripts>
 								<OnLoad>
-									_G[self:GetName().."Text"]:SetText("Minimap")
+									_G[self:GetName().."Text"]:SetText(RuneSets.L["Minimap"])
 								</OnLoad>
 								<OnShow>
 									self:SetChecked(not RuneSets.db._minimap.hide)
@@ -370,8 +375,8 @@
 								</OnClick>
 								<OnEnter>
 									GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
-									GameTooltip:SetText("Minimap Button", nil, nil, nil, nil, true)
-									GameTooltip:AddLine("Show a MiniMap/Panel button",1,1,1)
+									GameTooltip:SetText(RuneSets.L["Minimap Button"], nil, nil, nil, nil, true)
+									GameTooltip:AddLine(RuneSets.L["Show a MiniMap/Panel button"],1,1,1)
 									GameTooltip:Show();
 								</OnEnter>
 								<OnLeave function="GameTooltip_Hide"/>
@@ -386,7 +391,7 @@
 				    </Anchors>
 							<Scripts>
 								<OnLoad>
-									_G[self:GetName().."Text"]:SetText("Edit Sets")
+									_G[self:GetName().."Text"]:SetText(RuneSets.L["Edit Sets"])
 								</OnLoad>
 								<OnShow>
 									self:SetChecked(RuneSets.db._edit)
@@ -402,9 +407,9 @@
 								</OnClick>
 								<OnEnter>
 									GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
-									GameTooltip:SetText("Edit Mode", nil, nil, nil, nil, true)
-									GameTooltip:AddLine("Checked: Configure Set",1,1,1)
-									GameTooltip:AddLine("Unchecked: Apply Set",1,1,1)
+									GameTooltip:SetText(RuneSets.L["Edit Mode"], nil, nil, nil, nil, true)
+									GameTooltip:AddLine(RuneSets.L["Checked: Configure Set"],1,1,1)
+									GameTooltip:AddLine(RuneSets.L["Unchecked: Apply Set"],1,1,1)
 									GameTooltip:Show();
 								</OnEnter>
 								<OnLeave function="GameTooltip_Hide"/>
@@ -419,7 +424,7 @@
 				    </Anchors>
 							<Scripts>
 								<OnLoad>
-									_G[self:GetName().."Text"]:SetText("Auto Show")
+									_G[self:GetName().."Text"]:SetText(RuneSets.L["Auto Show"])
 								</OnLoad>
 								<OnShow>
 									self:SetChecked(RuneSets.db._auto)
@@ -429,8 +434,8 @@
 								</OnClick>
 								<OnEnter>
 									GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
-									GameTooltip:SetText("No-Rune Popup", nil, nil, nil, nil, true)
-									GameTooltip:AddLine("Auto-Show Engraving Frame when equipping Unruned Items",1,1,1,true)
+									GameTooltip:SetText(RuneSets.L["No-Rune Popup"], nil, nil, nil, nil, true)
+									GameTooltip:AddLine(RuneSets.L["Auto-Show Engraving Frame when equipping Unruned Items"],1,1,1,true)
 									GameTooltip:Show();
 								</OnEnter>
 								<OnLeave function="GameTooltip_Hide"/>
@@ -462,11 +467,11 @@
 					</OnMouseUp>
 					<OnEnter>
 						GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
-						GameTooltip:SetText("Toggle RuneSets", nil, nil, nil, nil, true)
+						GameTooltip:SetText(RuneSets.L["Toggle RuneSets"], nil, nil, nil, nil, true)
 						if (self:GetParent().collapsed) then
-						  GameTooltip:AddLine("Expand the RuneSets Frame",1,1,1,true)
+						  GameTooltip:AddLine(RuneSets.L["Expand the RuneSets Frame"],1,1,1,true)
 						else
-						  GameTooltip:AddLine("Collapse the RuneSets Frame",1,1,1,true)
+						  GameTooltip:AddLine(RuneSets.L["Collapse the RuneSets Frame"],1,1,1,true)
 						end
 						GameTooltip:Show();
 					</OnEnter>
