@@ -1,7 +1,0 @@
-package-as: RuneSets
-enable-nolib-creation: no
-
-ignore:
-  - .gitignore
-  - .pkgmeta
-  - README.md
