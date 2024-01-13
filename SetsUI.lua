@@ -8,6 +8,29 @@ local LDBIcon = LibStub("LibDBIcon-1.0")
 local LSFDD = LibStub("LibSFDropDown-1.4")
 local RUNESET_BUTTON_HEIGHT = 40
 local MAX_RUNESETS = 10
+
+local slotid_to_name = {
+  [INVSLOT_AMMO] = INVTYPE_AMMO,
+  [INVSLOT_HEAD] = INVTYPE_HEAD,
+  [INVSLOT_NECK] = INVTYPE_NECK,
+  [INVSLOT_SHOULDER] = INVTYPE_SHOULDER,
+  [INVSLOT_BODY] = INVTYPE_BODY,
+  [INVSLOT_CHEST] = INVTYPE_CHEST,
+  [INVSLOT_WAIST] = INVTYPE_WAIST,
+  [INVSLOT_LEGS] = INVTYPE_LEGS,
+  [INVSLOT_FEET] = INVTYPE_FEET,
+  [INVSLOT_WRIST] = INVTYPE_WRIST,
+  [INVSLOT_HAND] = INVTYPE_HAND,
+  [INVSLOT_FINGER1] = INVTYPE_FINGER,
+  [INVSLOT_FINGER2] = INVTYPE_FINGER,
+  [INVSLOT_TRINKET1] = INVTYPE_TRINKET,
+  [INVSLOT_TRINKET2] = INVTYPE_TRINKET,
+  [INVSLOT_BACK] = INVTYPE_CLOAK,
+  [INVSLOT_MAINHAND] = INVTYPE_WEAPONMAINHAND,
+  [INVSLOT_OFFHAND] = INVTYPE_WEAPONOFFHAND,
+  [INVSLOT_RANGED] = INVTYPE_RANGED,
+  [INVSLOT_TABARD] = INVTYPE_TABARD,
+}
 local slotid_to_icon = {
   [INVSLOT_CHEST] = "iconChest",
   [INVSLOT_LEGS] = "iconLegs",
@@ -90,6 +113,23 @@ end
 function addon.utils.Print(msg)
   local chatFrame = (SELECTED_CHAT_FRAME or DEFAULT_CHAT_FRAME)
   chatFrame:AddMessage(format("%s: %s",addon._label,msg))
+end
+
+function addon.utils.MakeEscable(frame,enable)
+  local frameName
+  if type(frame)=="string" then
+    frameName = frame
+  else
+    frameName = frame:GetName()
+  end
+  if frameName then
+    local index = tIndexOf(UISpecialFrames, frameName)
+    if enable and not index then
+      tinsert(UISpecialFrames, frameName)
+    elseif not enable and index then
+      tremove(UISpecialFrames, index)
+    end
+  end
 end
 
 function addon.utils.FirstMatchedSet()
@@ -236,6 +276,7 @@ local function Setup()
         EngravingFrame:SetPoint("TOPLEFT",CharacterFrame,"TOPRIGHT",-24,-70)
       end
     end)
+    addon.utils.MakeEscable(EngravingFrame,true)
     ResizeRuneButtons()
   end
   EngravingFrameSpell_OnClick = function(self, button)
@@ -373,7 +414,7 @@ local function AutomateSet(newStatus)
     addon._selectedSet = set_id
     addon._dataBroker.text = set.name
     PlaySound(SOUNDKIT.TUTORIAL_POPUP)
-    RaidNotice_AddMessage(RaidBossEmoteFrame, format(L["%s: RuneSet %q Ready"],status_name, set.name),ChatTypeInfo["RAID_WARNING"], 15)
+    RaidNotice_AddMessage(RaidBossEmoteFrame, format(L["%s: RuneSet %q Ready"],status_name, set.name),ChatTypeInfo["RAID_WARNING"], 10)
     addon.utils.Print(format(L["%s: RuneSet %q Ready"],status_name, set.name))
     return true
   end
@@ -482,6 +523,8 @@ function addon:PLAYER_EQUIPMENT_CHANGED(event,...)
             ToggleEngravingFrame()
           end
         end
+        RaidNotice_AddMessage(RaidBossEmoteFrame,format(L["New %s item equipped without a Rune"],slotid_to_name[slot]),ChatTypeInfo["SYSTEM"], 5)
+        addon.utils.Print(format(L["New %s item equipped without a Rune"],slotid_to_name[slot]))
       end
     end
   end
