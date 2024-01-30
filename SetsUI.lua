@@ -33,18 +33,24 @@ local slotid_to_name = {
 }
 local slotid_to_icon = {
   [INVSLOT_CHEST] = "iconChest",
+  [INVSLOT_WAIST] = "iconWaist",
   [INVSLOT_LEGS] = "iconLegs",
-  [INVSLOT_HAND] = "iconHands"
+  [INVSLOT_FEET] = "iconFeet",
+  [INVSLOT_HAND] = "iconHands",
 }
 local icon_to_tex = {
   iconChest = 136512,
+  iconWaist = 136529,
   iconLegs = 136517,
+  iconFeet = 136513,
   iconHands = 136515,
 }
 local ordered_slots = {
-  INVSLOT_CHEST,
-  INVSLOT_LEGS,
-  INVSLOT_HAND,
+  INVSLOT_CHEST, -- 5
+  INVSLOT_WAIST, -- 6
+  INVSLOT_LEGS, -- 7
+  INVSLOT_FEET, -- 8
+  INVSLOT_HAND, -- 10
 }
 local state_names = {
   ["pvp"] = L["PvP"],
@@ -53,9 +59,10 @@ local state_names = {
   ["world-raid"] = L["World-Raid"],
   ["dungeon"] = L["Dungeon"],
   ["raid"] = L["Raid"],
+  --["equip-set"] = L["Equipment-Set"], -- ItemRack, Equipmate NYI
 }
 local state_ordered = {
-  "pvp", "dungeon", "raid", "world-solo", "world-party", "world-raid"
+  "pvp", "dungeon", "raid", "world-solo", "world-party", "world-raid", --[[ "equip-set"]]
 }
 local defaults = {
   sets = {
@@ -138,8 +145,10 @@ function addon.utils.FirstMatchedSet()
   local own = {}
   local matched
   for _,slot in ipairs(ordered_slots) do
-    local runeInfo = C_Engraving.GetRuneForEquipmentSlot(slot)
-    own[slot] = runeInfo and runeInfo.skillLineAbilityID or nil
+    if C_Engraving.IsEquipmentSlotEngravable(slot) then
+      local runeInfo = C_Engraving.GetRuneForEquipmentSlot(slot)
+      own[slot] = runeInfo and runeInfo.skillLineAbilityID or nil
+    end
   end
   if addon.utils.tCount(own) > 0 then
     local matched_id, matched_name
@@ -182,11 +191,13 @@ function addon.utils.IsSetEquipped(set_query)
     local runes = set.runes
     local equiphash, sethash
     for _,slot in ipairs(ordered_slots) do
-      local runeInfo = C_Engraving.GetRuneForEquipmentSlot(slot)
-      local runeid = runeInfo and runeInfo.skillLineAbilityID
-      local setrune = runes[slot][1]
-      equiphash = equiphash and format("%s:%s",equiphash,(runeid or 0)) or tostring(runeid or 0)
-      sethash = sethash and format("%s:%s",sethash,(setrune or 0)) or tostring(setrune or 0)
+      if C_Engraving.IsEquipmentSlotEngravable(slot) then
+        local runeInfo = C_Engraving.GetRuneForEquipmentSlot(slot)
+        local runeid = runeInfo and runeInfo.skillLineAbilityID
+        local setrune = runes[slot] and runes[slot][1]
+        equiphash = equiphash and format("%s:%s",equiphash,(runeid or 0)) or tostring(runeid or 0)
+        sethash = sethash and format("%s:%s",sethash,(setrune or 0)) or tostring(setrune or 0)
+      end
     end
     return (equiphash==sethash and equiphash:gsub("[0:]","")~="")
   end
@@ -227,6 +238,30 @@ function addon.utils.StatusChange()
   end
   addon._lastState = addon._currState
   return changed, addon._currState
+end
+
+function addon.utils.ItemRackSets()
+  addon.ItemRackSets = wipe(addon.ItemRackSets or {})
+  for setname,set in pairs(ItemRackUser.Sets) do
+    if not ItemRack.IsHidden(setname) and not setname:match("^~") then
+      addon.ItemRackSets[#addon.ItemRackSets+1]=setname
+    end
+  end
+  table.sort(addon.ItemRackSets)
+  return addon.ItemRackSets
+end
+function addon.utils.ItemRackSetUpdate(event,setname)
+  local index = tIndexOf(addon.ItemRackSets,setname)
+  if event == "ITEMRACK_SET_DELETED" then
+    if index then
+      tremove(addon.ItemRackSets.index)
+    end
+  elseif event == "ITEMRACK_SET_SAVED" then
+    addon.utils.ItemRackSets()
+  end
+end
+function addon.utils.ItemRackSetSelected(setname)
+  print(setname)
 end
 
 local function ResizeRuneButtons()
@@ -342,7 +377,11 @@ local function MinimapOnClick(obj, button)
     ToggleEngravingFrame()
   elseif button=="LeftButton" then
     if addon._selectedSet then
-      addon.RunSet(addon._selectedSet)
+      if addon.utils.IsSetEquipped(addon._selectedSet) then
+        BuildMenu(obj)
+      else
+        addon.RunSet(addon._selectedSet)
+      end
     else
       BuildMenu(obj)
     end
@@ -377,6 +416,11 @@ local function InitBroker(isLogin, isReload)
   addon.Minimap.dropdown = addon.Minimap.dropdown or LSFDD:SetMixin({})
   addon.Minimap.dropdown:ddHideWhenButtonHidden(LDBIcon:GetMinimapButton(addonName))
   addon.Minimap.dropdown:ddSetMaxHeight(180)
+  local set_id,setname = addon.utils.FirstMatchedSet()
+  if set_id and setname then
+    addon._selectedSet = set_id
+    addon._dataBroker.text = setname
+  end
   ShowMinimap()
 end
 
@@ -456,13 +500,45 @@ local function ConfirmDelete(setname,set_id)
   end
 end
 
+local function SetupEquipmentManagers(name)
+  if not name then
+    for _,name in pairs({"ItemRack","Equipmate"}) do
+      SetupEquipmentManagers(name)
+    end
+    return
+  end
+  local loaded, finished = C_AddOns.IsAddOnLoaded(name)
+  if loaded and finished then
+    if name == "ItemRack" and not addon._ItemRackDone then
+      if ItemRack.RegisterExternalEventListener then
+        ItemRack:RegisterExternalEventListener("ITEMRACK_SET_SAVED",addon.utils.ItemRackSetUpdate)
+        ItemRack:RegisterExternalEventListener("ITEMRACK_SET_DELETED",addon.utils.ItemRackSetUpdate)
+      end
+      if ItemRack.EndSetSwap then
+        hooksecurefunc(ItemRack,"EndSetSwap",addon.utils.ItemRackSetSelected)
+      end
+      addon.ItemRackSets = addon.utils.ItemRackSets()
+      addon._ItemRackDone = true
+    end
+    if name == "Equipmate" and not addon._EquipmateDone then
+    end
+  end
+end
+
 function addon:ADDON_LOADED(event,...)
-  if ... == addonName then
+  local name = ...
+  if name == addonName then
     if RuneSetsDB._auto then
       addon._event:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
     else
       addon._event:UnregisterEvent("PLAYER_EQUIPMENT_CHANGED")
     end
+  end
+  if name == "ItemRack" then
+    SetupEquipmentManagers(name)
+  end
+  if name == "Equipmate" then
+    SetupEquipmentManagers(name)
   end
 end
 
@@ -472,6 +548,7 @@ function addon:PLAYER_ENTERING_WORLD(event,...)
     Setup()
     InitVars(isLogin, isReload)
     CacheRunes()
+    SetupEquipmentManagers()
   end
   if HasAutomation() then
     local statusChanged, newStatus = addon.utils.StatusChange()
@@ -590,10 +667,12 @@ function addon.SetButton.OnEnter(self)
       local runes = sets[set_id] and sets[set_id].runes
       if runes and addon.utils.tCount(runes)>0 then
         for _,slot in ipairs(ordered_slots) do
-          if runes[slot] then
-            GameTooltip:AddLine(runes[slot][3],1,1,1)
-          else
-            GameTooltip:AddLine(EMPTY)
+          if C_Engraving.IsEquipmentSlotEngravable(slot) then
+            if runes[slot] then
+              GameTooltip:AddLine(runes[slot][3],1,1,1)
+            else
+              GameTooltip:AddLine(EMPTY)
+            end
           end
         end
       end
@@ -604,6 +683,21 @@ function addon.SetButton.OnEnter(self)
     end
   end
   GameTooltip:Show()
+end
+function addon.SetButton.ArrangeIcons(self)
+  local x, y, relativePoint, relativeTo = 2,2, "BOTTOMLEFT", self
+  for _,slot in ipairs(ordered_slots) do
+    local parentKey = slotid_to_icon[slot]
+    local icon = self[parentKey]
+    if C_Engraving.IsEquipmentSlotEngravable(slot) then
+      icon:Show()
+      icon:ClearAllPoints()
+      icon:SetPoint("BOTTOMLEFT",relativeTo,relativePoint,x,y)
+      x,y, relativePoint, relativeTo = 2,0, "BOTTOMRIGHT", icon
+    else
+      icon:Hide()
+    end
+  end
 end
 function addon.SetButton.ShowIncludeOption(option)
   local set_id = option:GetParent():GetID()
@@ -734,7 +828,7 @@ function addon.SetButton.ScriptSet(setbutton)
         UIDropDownMenu_SetText(RuneSetsSetOptionFrame.statedd, NONE)
       end
       RuneSetsSetOptionFrame:ClearAllPoints()
-      RuneSetsSetOptionFrame:SetPoint("TOPLEFT",setbutton,"TOPRIGHT",40,0)
+      RuneSetsSetOptionFrame:SetPoint("TOPLEFT",setbutton,"TOPRIGHT",45,0)
       RuneSetsSetOptionFrame:Show()
     else
       local option_id = RuneSetsSetOptionFrame:GetID()
@@ -751,7 +845,7 @@ function addon.SetButton.ScriptSet(setbutton)
           UIDropDownMenu_SetText(RuneSetsSetOptionFrame.statedd, NONE)
         end
         RuneSetsSetOptionFrame:ClearAllPoints()
-        RuneSetsSetOptionFrame:SetPoint("TOPLEFT",setbutton,"TOPRIGHT",40,0)
+        RuneSetsSetOptionFrame:SetPoint("TOPLEFT",setbutton,"TOPRIGHT",45,0)
       end
     end
     PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)

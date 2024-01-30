@@ -6,22 +6,34 @@
 		<Size x="160" y="40"/>
 		<Layers>
 			<Layer level="OVERLAY">
-				<Texture name="$parentIconChest" file="Interface\PaperDoll\UI-PaperDoll-Slot-Chest" parentKey="iconChest">
+				<Texture name="$parentIconChest" file="Interface\PaperDoll\UI-PaperDoll-Slot-Chest" parentKey="iconChest" id="5">
 					<Size x="18" y="18"/>
 					<Anchors>
 						<Anchor point="BOTTOMLEFT" x="2" y="2"/>
 					</Anchors>
 				</Texture>
-				<Texture name="$parentIconLegs" file="Interface\PaperDoll\UI-PaperDoll-Slot-Legs" parentKey="iconLegs">
+				<Texture name="$parentIconWaist" file="Interface\PaperDoll\UI-PaperDoll-Slot-Waist" parentKey="iconWaist" id="6">
 					<Size x="18" y="18"/>
 					<Anchors>
 						<Anchor point="BOTTOMLEFT" relativeTo="$parentIconChest" relativePoint="BOTTOMRIGHT" x="2" y="0"/>
 					</Anchors>
 				</Texture>
-				<Texture name="$parentIconHands" file="Interface\PaperDoll\UI-PaperDoll-Slot-Hands" parentKey="iconHands">
+				<Texture name="$parentIconLegs" file="Interface\PaperDoll\UI-PaperDoll-Slot-Legs" parentKey="iconLegs" id="7">
+					<Size x="18" y="18"/>
+					<Anchors>
+						<Anchor point="BOTTOMLEFT" relativeTo="$parentIconWaist" relativePoint="BOTTOMRIGHT" x="2" y="0"/>
+					</Anchors>
+				</Texture>
+				<Texture name="$parentIconFeet" file="Interface\PaperDoll\UI-PaperDoll-Slot-Feet" parentKey="iconFeet" id="8">
 					<Size x="18" y="18"/>
 					<Anchors>
 						<Anchor point="BOTTOMLEFT" relativeTo="$parentIconLegs" relativePoint="BOTTOMRIGHT" x="2" y="0"/>
+					</Anchors>
+				</Texture>
+				<Texture name="$parentIconHands" file="Interface\PaperDoll\UI-PaperDoll-Slot-Hands" parentKey="iconHands" id="10">
+					<Size x="18" y="18"/>
+					<Anchors>
+						<Anchor point="BOTTOMLEFT" relativeTo="$parentIconFeet" relativePoint="BOTTOMRIGHT" x="2" y="0"/>
 					</Anchors>
 				</Texture>
 				<Texture name="$parentIconPlay" file="Interface\COMMON\CommonIcons" parentKey="iconPlay">
@@ -151,6 +163,9 @@
 				self:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 				self:SetAttribute("type", "stop")
 			</OnLoad>
+			<OnShow>
+				RuneSets.SetButton.ArrangeIcons(self)
+			</OnShow>
 			<OnEnter>
 				RuneSets.SetButton.OnEnter(self)
 			</OnEnter>
