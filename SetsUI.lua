@@ -59,10 +59,9 @@ local state_names = {
   ["world-raid"] = L["World-Raid"],
   ["dungeon"] = L["Dungeon"],
   ["raid"] = L["Raid"],
-  --["equip-set"] = L["Equipment-Set"], -- ItemRack, Equipmate NYI
 }
 local state_ordered = {
-  "pvp", "dungeon", "raid", "world-solo", "world-party", "world-raid", --[[ "equip-set"]]
+  "pvp", "dungeon", "raid", "world-solo", "world-party", "world-raid",
 }
 local defaults = {
   sets = {
@@ -78,6 +77,8 @@ local defaults = {
       ["world-raid"] = -1,
       ["dungeon"] = -1,
       ["raid"] = -1,
+    }, equipstates = {
+
     }
   }
 addon.utils = {}
@@ -101,169 +102,6 @@ f:RegisterEvent("GROUP_FORMED")
 f:RegisterEvent("UNIT_INVENTORY_CHANGED")
 f:RegisterEvent("RUNE_UPDATED")
 
-function addon.utils.tCount(tbl)
-  local count = 0
-  for k,v in pairs(tbl) do
-    count = count + 1
-  end
-  return count
-end
-
-function addon.utils.Suppress(enable)
-  if enable then
-    SetCVar("Sound_EnableSFX", "0")
-  else
-    SetCVar("Sound_EnableSFX", "1")
-  end
-end
-
-function addon.utils.Print(msg)
-  local chatFrame = (SELECTED_CHAT_FRAME or DEFAULT_CHAT_FRAME)
-  chatFrame:AddMessage(format("%s: %s",addon._label,msg))
-end
-
-function addon.utils.MakeEscable(frame,enable)
-  local frameName
-  if type(frame)=="string" then
-    frameName = frame
-  else
-    frameName = frame:GetName()
-  end
-  if frameName then
-    local index = tIndexOf(UISpecialFrames, frameName)
-    if enable and not index then
-      tinsert(UISpecialFrames, frameName)
-    elseif not enable and index then
-      tremove(UISpecialFrames, index)
-    end
-  end
-end
-
-function addon.utils.FirstMatchedSet()
-  local sets = addon.db[addon._playerKey].sets
-  if not sets or #sets==0 then return false end
-  local own = {}
-  local matched
-  for _,slot in ipairs(ordered_slots) do
-    if C_Engraving.IsEquipmentSlotEngravable(slot) then
-      local runeInfo = C_Engraving.GetRuneForEquipmentSlot(slot)
-      own[slot] = runeInfo and runeInfo.skillLineAbilityID or nil
-    end
-  end
-  if addon.utils.tCount(own) > 0 then
-    local matched_id, matched_name
-    for set_id, set in pairs(sets) do
-      matched_id, matched_name = set_id, set.name
-      local runes = set.runes
-      for slot, runeid in pairs(own) do
-        if not runes[slot] or runes[slot][1] ~= runeid then
-          matched_id, matched_name = nil, nil
-          break
-        end
-      end
-      if matched_id and matched_name then
-        return matched_id, matched_name
-      end
-    end
-    return false
-  else
-    return false
-  end
-end
-
-function addon.utils.IsSetEquipped(set_query)
-  local sets = addon.db[addon._playerKey].sets
-  if not sets or #sets==0 then return false end
-  local set_id, set
-  if type(set_query)=="number" then
-    set_id = set_query
-    set = sets[set_id]
-  elseif type(set_query)=="string" then
-    for id, sset in pairs(sets) do
-      if strlower(sset.name) == strlower(set_query) then
-        set_id = id
-        set = sset
-        break
-      end
-    end
-  end
-  if set then
-    local runes = set.runes
-    local equiphash, sethash
-    for _,slot in ipairs(ordered_slots) do
-      if C_Engraving.IsEquipmentSlotEngravable(slot) then
-        local runeInfo = C_Engraving.GetRuneForEquipmentSlot(slot)
-        local runeid = runeInfo and runeInfo.skillLineAbilityID
-        local setrune = runes[slot] and runes[slot][1]
-        equiphash = equiphash and format("%s:%s",equiphash,(runeid or 0)) or tostring(runeid or 0)
-        sethash = sethash and format("%s:%s",sethash,(setrune or 0)) or tostring(setrune or 0)
-      end
-    end
-    return (equiphash==sethash and equiphash:gsub("[0:]","")~="")
-  end
-  return false
-end
-
-function addon.utils.StatusChange()
-  local inInstance, instanceType = IsInInstance()
-  local inBG = InActiveBattlefield()
-  local worldPvP = IsInActiveWorldPVP("player")
-  local changed, status
-  if (instanceType and instanceType == "pvp") or inBG or worldPvP then
-    addon._currState = "pvp"
-  elseif IsInRaid() and GetNumGroupMembers()>1 then
-    status = "raid"
-  elseif IsInGroup() and GetNumGroupMembers()>1 then
-    status = "party"
-  elseif not IsInGroup() or GetNumGroupMembers()<2 then
-    status = "solo"
-  end
-  if status == "solo" and not inInstance then
-    addon._currState = "world-solo"
-  end
-  if (status == "party" or status == "raid") and not inInstance then
-    addon._currState = "world-"..status
-  end
-  if inInstance and instanceType == "party" then
-    addon._currState = "dungeon"
-  end
-  if inInstance and instanceType == "raid" then
-    addon._currState = "raid"
-  end
-  if not addon._currState then addon._currState = "unknown" end
-  if not addon._lastState or (addon._lastState ~= addon._currState) then
-    changed = true
-  else
-    changed = false
-  end
-  addon._lastState = addon._currState
-  return changed, addon._currState
-end
-
-function addon.utils.ItemRackSets()
-  addon.ItemRackSets = wipe(addon.ItemRackSets or {})
-  for setname,set in pairs(ItemRackUser.Sets) do
-    if not ItemRack.IsHidden(setname) and not setname:match("^~") then
-      addon.ItemRackSets[#addon.ItemRackSets+1]=setname
-    end
-  end
-  table.sort(addon.ItemRackSets)
-  return addon.ItemRackSets
-end
-function addon.utils.ItemRackSetUpdate(event,setname)
-  local index = tIndexOf(addon.ItemRackSets,setname)
-  if event == "ITEMRACK_SET_DELETED" then
-    if index then
-      tremove(addon.ItemRackSets.index)
-    end
-  elseif event == "ITEMRACK_SET_SAVED" then
-    addon.utils.ItemRackSets()
-  end
-end
-function addon.utils.ItemRackSetSelected(setname)
-  print(setname)
-end
-
 local function ResizeRuneButtons()
   RUNE_BUTTON_HEIGHT=20
   EngravingFrame.scrollFrame.buttons[1]:SetHeight(20)
@@ -279,9 +117,17 @@ end
 
 local function CacheRunes()
   C_Engraving.RefreshRunesList()
-  local categories = C_Engraving.GetRuneCategories(true, true)
+  local categories = C_Engraving.GetRuneCategories(false, true)
   for _, category in ipairs(categories) do
     local runes = C_Engraving.GetRunesForCategory(category, true)
+  end
+end
+
+local function CacheAllRunes()
+  C_Engraving.RefreshRunesList()
+  local allcategories = C_Engraving.GetRuneCategories(false,false)
+  for _, category in ipairs(allcategories) do
+    local runes = C_Engraving.GetRunesForCategory(category, false)
   end
 end
 
@@ -428,6 +274,7 @@ local function InitVars(isLogin, isReload)
   addon._playerKey = format("%s-%s",(UnitNameUnmodified("player")),(GetNormalizedRealmName()))
   addon.db = addon.db or RuneSetsDB
   addon.db[addon._playerKey] = addon.db[addon._playerKey] or defaults
+  addon.db[addon._playerKey].equipstates = addon.db[addon._playerKey].equipstates or {}
   InitBroker(isLogin, isReload)
 end
 
@@ -448,6 +295,16 @@ local function HasAutomation(status)
   return false
 end
 
+local function HasEquipAutomation(equipset)
+  local equipstates = addon.db[addon._playerKey].equipstates
+  for id, setkey in pairs(equipstates) do
+    if setkey == equipset then
+      return true, id
+    end
+  end
+  return false
+end
+
 local function AutomateSet(newStatus)
   local sets = addon.db[addon._playerKey].sets
   if not sets or #sets==0 then return false end
@@ -461,6 +318,24 @@ local function AutomateSet(newStatus)
     RaidNotice_AddMessage(RaidBossEmoteFrame, format(L["%s: RuneSet %q Ready"],status_name, set.name),ChatTypeInfo["RAID_WARNING"], 10)
     addon.utils.Print(format(L["%s: RuneSet %q Ready"],status_name, set.name))
     return true
+  end
+end
+
+local function AutomateEquipSet(equipset,setname)
+  local sets = addon.db[addon._playerKey].sets
+  if not sets or #sets==0 then return false end
+  local hasSet, set_id = HasEquipAutomation(equipset)
+  local status_name = setname
+  local set = sets[set_id]
+  if set then
+    if not addon.utils.IsSetEquipped(set_id) then
+      addon._selectedSet = set_id
+      addon._dataBroker.text = set.name
+      PlaySound(SOUNDKIT.TUTORIAL_POPUP)
+      RaidNotice_AddMessage(RaidBossEmoteFrame, format(L["%s: RuneSet %q Ready"],status_name, set.name),ChatTypeInfo["RAID_WARNING"], 10)
+      addon.utils.Print(format(L["%s: RuneSet %q Ready"],status_name, set.name))
+      return true
+    end
   end
 end
 
@@ -521,8 +396,235 @@ local function SetupEquipmentManagers(name)
       addon._ItemRackDone = true
     end
     if name == "Equipmate" and not addon._EquipmateDone then
+      EventRegistry:RegisterCallback("EQUIPMATE_ON_OUTFIT_CREATED", addon.utils.EquipmateSetUpdate)
+      EventRegistry:RegisterCallback("EQUIPMATE_ON_OUTFIT_DELETED", addon.utils.EquipmateSetRemoved)
+      EventRegistry:RegisterCallback("EQUIPMATE_ON_OUTFIT_EQUIPPED", addon.utils.EquipmateSetSelected)
+      addon.EquipmateSets = addon.utils.EquipmateSets()
+      addon._EquipmateDone = true
     end
   end
+end
+
+function addon.utils.tCount(tbl)
+  local count = 0
+  for k,v in pairs(tbl) do
+    count = count + 1
+  end
+  return count
+end
+
+function addon.utils.Suppress(mute)
+  if addon._originalSFX == "0" then return end
+  if mute then
+    SetCVar("Sound_EnableSFX", "0")
+  else
+    SetCVar("Sound_EnableSFX", "1")
+  end
+end
+
+function addon.utils.Print(msg)
+  local chatFrame = (SELECTED_CHAT_FRAME or DEFAULT_CHAT_FRAME)
+  chatFrame:AddMessage(format("%s: %s",addon._label,msg))
+end
+
+function addon.utils.MakeEscable(frame,enable)
+  local frameName
+  if type(frame)=="string" then
+    frameName = frame
+  else
+    frameName = frame:GetName()
+  end
+  if frameName then
+    local index = tIndexOf(UISpecialFrames, frameName)
+    if enable and not index then
+      tinsert(UISpecialFrames, frameName)
+    elseif not enable and index then
+      tremove(UISpecialFrames, index)
+    end
+  end
+end
+
+function addon.utils.FirstMatchedSet()
+  local sets = addon.db[addon._playerKey].sets
+  if not sets or #sets==0 then return false end
+  local own = {}
+  local matched
+  for _,slot in ipairs(ordered_slots) do
+    if C_Engraving.IsEquipmentSlotEngravable(slot) then
+      local runeInfo = C_Engraving.GetRuneForEquipmentSlot(slot)
+      own[slot] = runeInfo and runeInfo.skillLineAbilityID or nil
+    end
+  end
+  if addon.utils.tCount(own) > 0 then
+    local matched_id, matched_name
+    for set_id, set in pairs(sets) do
+      matched_id, matched_name = set_id, set.name
+      local runes = set.runes
+      for slot, runeid in pairs(own) do
+        if not runes[slot] or runes[slot][1] ~= runeid then
+          matched_id, matched_name = nil, nil
+          break
+        end
+      end
+      if matched_id and matched_name then
+        return matched_id, matched_name
+      end
+    end
+    return false
+  else
+    return false
+  end
+end
+
+function addon.utils.IsSetEquipped(set_query)
+  local sets = addon.db[addon._playerKey].sets
+  if not sets or #sets==0 then return false end
+  local set_id, set
+  if type(set_query)=="number" then
+    set_id = set_query
+    set = sets[set_id]
+  elseif type(set_query)=="string" then
+    for id, sset in pairs(sets) do
+      if strlower(sset.name) == strlower(set_query) then
+        set_id = id
+        set = sset
+        break
+      end
+    end
+  end
+  if set then
+    local runes = set.runes
+    local equiphash, sethash
+    for _,slot in ipairs(ordered_slots) do
+      if C_Engraving.IsEquipmentSlotEngravable(slot) then
+        local runeInfo = C_Engraving.GetRuneForEquipmentSlot(slot)
+        local runeid = runeInfo and runeInfo.skillLineAbilityID
+        local setrune = runes[slot] and runes[slot][1]
+        equiphash = equiphash and format("%s:%s",equiphash,(runeid or 0)) or tostring(runeid or 0)
+        sethash = sethash and format("%s:%s",sethash,(setrune or 0)) or tostring(setrune or 0)
+      end
+    end
+    return (equiphash==sethash and equiphash:gsub("[0:]","")~="")
+  end
+  return false
+end
+
+function addon.utils.StatusChange()
+  local inInstance, instanceType = IsInInstance()
+  local inBG = InActiveBattlefield()
+  local worldPvP = IsInActiveWorldPVP("player")
+  local changed, status
+  if (instanceType and instanceType == "pvp") or inBG or worldPvP then
+    addon._currState = "pvp"
+  elseif IsInRaid() and GetNumGroupMembers()>1 then
+    status = "raid"
+  elseif IsInGroup() and GetNumGroupMembers()>1 then
+    status = "party"
+  elseif not IsInGroup() or GetNumGroupMembers()<2 then
+    status = "solo"
+  end
+  if status == "solo" and not inInstance then
+    addon._currState = "world-solo"
+  end
+  if (status == "party" or status == "raid") and not inInstance then
+    addon._currState = "world-"..status
+  end
+  if inInstance and instanceType == "party" then
+    addon._currState = "dungeon"
+  end
+  if inInstance and instanceType == "raid" then
+    addon._currState = "raid"
+  end
+  if not addon._currState then addon._currState = "unknown" end
+  if not addon._lastState or (addon._lastState ~= addon._currState) then
+    changed = true
+  else
+    changed = false
+  end
+  addon._lastState = addon._currState
+  return changed, addon._currState
+end
+
+function addon.utils.ItemRackSets()
+  addon.ItemRackSets = wipe(addon.ItemRackSets or {})
+  for setname,set in pairs(ItemRackUser.Sets) do
+    if not ItemRack.IsHidden(setname) and not setname:match("^~") then
+      addon.ItemRackSets[#addon.ItemRackSets+1]=setname
+    end
+  end
+  table.sort(addon.ItemRackSets)
+  return addon.ItemRackSets
+end
+function addon.utils.ItemRackSetUpdate(event,setname)
+  local index = tIndexOf(addon.ItemRackSets,setname)
+  if event == "ITEMRACK_SET_DELETED" then
+    if index then
+      tremove(addon.ItemRackSets,index)
+      local setkey = "itemrack:"..setname
+      local equipstates = addon.db[addon._playerKey].equipstates
+      for id,key in pairs(equipstates) do
+        if key == setkey then
+          equipstates[id] = nil
+        end
+      end
+    end
+  elseif event == "ITEMRACK_SET_SAVED" then
+    addon.utils.ItemRackSets()
+  end
+end
+function addon.utils.ItemRackSetSelected(setname)
+  local setkey = "itemrack:"..setname
+  AutomateEquipSet(setkey,setname)
+end
+
+function addon.utils.EquipmateSets()
+  addon.EquipmateSets = wipe(addon.EquipmateSets or {})
+  local eqmatesets = Equipmate.Api.GetEquipmentSetsForCharacter()
+  for k,v in pairs(eqmatesets) do
+    addon.EquipmateSets[#addon.EquipmateSets+1]=v.name
+  end
+  table.sort(addon.EquipmateSets)
+  return addon.EquipmateSets
+end
+
+function addon.utils.EquipmateSetUpdate(_,setname)
+  local index = tIndexOf(addon.EquipmateSets,setname)
+  if not index then
+    addon.utils.EquipmateSets()
+  end
+end
+function addon.utils.EquipmateSetRemoved(_,setname)
+  local index = tIndexOf(addon.EquipmateSets,setname)
+  if index then
+    tremove(addon.EquipmateSets,index)
+    local setkey = "equipmate:"..setname
+    local equipstates = addon.db[addon._playerKey].equipstates
+    for id,key in pairs(equipstates) do
+      if key == setkey then
+        equipstates[id] = nil
+      end
+    end
+  end
+end
+function addon.utils.EquipmateSetSelected(_,setname, success)
+  if success then
+    local setkey = "equipmate:"..setname
+    AutomateEquipSet(setkey,setname)
+  end
+end
+function addon.utils.EquipmentSetActive(setkey)
+  local addonkey = setkey:match("^([^:]+):")
+  local setname = setkey:gsub("[^:]+:","",1)
+  if addonkey == "itemrack" then
+    if ItemRack and ItemRack.IsSetEquipped then
+      return ItemRack.IsSetEquipped(setname)
+    end
+  elseif addonkey == "equipmate" then
+    if Equipmate and Equipmate.Api and Equipmate.Api.GetCurrentOutfitStatus then
+      return (Equipmate.Api.GetCurrentOutfitStatus() == setname)
+    end
+  end
+  return false
 end
 
 function addon:ADDON_LOADED(event,...)
@@ -549,6 +651,7 @@ function addon:PLAYER_ENTERING_WORLD(event,...)
     InitVars(isLogin, isReload)
     CacheRunes()
     SetupEquipmentManagers()
+    addon._originalSFX = GetCVar("Sound_EnableSFX")
   end
   if HasAutomation() then
     local statusChanged, newStatus = addon.utils.StatusChange()
@@ -806,6 +909,7 @@ function addon.SetButton.ScriptSet(setbutton)
   local set_id = setbutton:GetID()
   local sets = addon.db[addon._playerKey].sets
   local states = addon.db[addon._playerKey].states
+  local equipstates = addon.db[addon._playerKey].equipstates
   local set = sets and sets[set_id]
   if set then
     local name = set.name
@@ -815,6 +919,15 @@ function addon.SetButton.ScriptSet(setbutton)
         statekey = key
         statename = state_names[statekey]
         break
+      end
+    end
+    if not (statekey and statename) then
+      for id, equipset in pairs(equipstates) do
+        if id == set_id then
+          statekey = equipset
+          statename = equipset:gsub("[^:]+:","",1)
+          break
+        end
       end
     end
     if not RuneSetsSetOptionFrame:IsShown() then
@@ -867,6 +980,7 @@ function addon.Frame.Automate(self, arg1)
   UIDropDownMenu_SetText(dropdown, self.value)
   local set_id = dropdown:GetParent():GetID()
   local states = addon.db[addon._playerKey].states
+  local equipstates = addon.db[addon._playerKey].equipstates
   if set_id then
     if arg1 == -1 then
       for state,id in pairs(states) do
@@ -875,14 +989,44 @@ function addon.Frame.Automate(self, arg1)
           break
         end
       end
+      for id,equipset in pairs(equipstates) do
+        if id == set_id then
+          equipstates[id] = nil
+        end
+      end
     else
       if states[arg1]~=set_id then
         states[arg1]=set_id
+        for id, equipset in pairs(equipstates) do
+          if id == set_id then
+            equipstates[id] = nil
+          end
+        end
         if HasAutomation() then
           local statusChanged, newStatus = addon.utils.StatusChange()
           AutomateSet(newStatus)
         end
       end
+    end
+  end
+end
+
+function addon.Frame.AutomateEquip(self, arg1)
+  local dropdown = self:GetParent().dropdown
+  UIDropDownMenu_SetSelectedValue(dropdown, arg1)
+  UIDropDownMenu_SetText(dropdown, self.value)
+  local set_id = dropdown:GetParent():GetID()
+  local equipstates = addon.db[addon._playerKey].equipstates
+  local states = addon.db[addon._playerKey].states
+  if set_id then
+    equipstates[set_id]=arg1
+    for state,id in pairs(states) do
+      if id == set_id then
+        states[state]=-1
+      end
+    end
+    if addon.utils.EquipmentSetActive(arg1) then
+      AutomateEquipSet(arg1,self.value)
     end
   end
 end
@@ -986,20 +1130,61 @@ function addon.Frame.UpdateSetList(self)
 
   RuneSetsFrame.contentFrame.scrollFrame.emptyText:Hide()
 end
-function addon.Frame.StatesDDInit()
+function addon.Frame.StatesDDInit(frame,level)
+  level = level or 1
   local info = UIDropDownMenu_CreateInfo()
-  info.func = addon.Frame.Automate
-
-  info.text = NONE
-  info.notCheckable = true
-  info.arg1 = -1
-  UIDropDownMenu_AddButton(info)
-
-  for _,state in ipairs(state_ordered) do
-    info.text = state_names[state]
+  if level == 1 then
+    info.func = addon.Frame.Automate
+    info.text = NONE
     info.notCheckable = true
-    info.arg1 = state
+    info.arg1 = -1
     UIDropDownMenu_AddButton(info)
+
+    for _,state in ipairs(state_ordered) do
+      info.text = state_names[state]
+      info.notCheckable = true
+      info.arg1 = state
+      UIDropDownMenu_AddButton(info)
+    end
+
+    if addon.EquipmateSets and #addon.EquipmateSets > 0 then
+      info.text = "Equipmate"
+      info.hasArrow = true
+      info.value = "equipmate"
+      info.notCheckable = true
+      info.func = nil
+      UIDropDownMenu_AddButton(info)
+    end
+
+    if addon.ItemRackSets and #addon.ItemRackSets > 0 then
+      info.text = "ItemRack"
+      info.hasArrow = true
+      info.value = "itemrack"
+      info.notCheckable = true
+      info.func = nil
+      UIDropDownMenu_AddButton(info)
+    end
+
+  elseif level == 2 then
+    if UIDROPDOWNMENU_MENU_VALUE == "itemrack" then
+      for _,setname in ipairs(addon.ItemRackSets) do
+        local setkey = format("itemrack:"..setname)
+        info.text = setname
+        info.notCheckable = true
+        info.arg1 = setkey
+        info.func = addon.Frame.AutomateEquip
+        UIDropDownMenu_AddButton(info, level)
+      end
+    elseif UIDROPDOWNMENU_MENU_VALUE == "equipmate" then
+      for _,setname in ipairs(addon.EquipmateSets) do
+        local setkey = format("equipmate:"..setname)
+        info.text = setname
+        info.notCheckable = true
+        info.arg1 = setkey
+        info.func = addon.Frame.AutomateEquip
+        UIDropDownMenu_AddButton(info, level)
+      end
+    end
   end
 
 end
@@ -1041,3 +1226,6 @@ SlashCmdList["RUNESETS"] = function(msg)
     ToggleEngravingFrame()
   end
 end
+--[[
+option to show unlearned runes with action being a link to wowhead - for starters, maybe something in-game later
+]]

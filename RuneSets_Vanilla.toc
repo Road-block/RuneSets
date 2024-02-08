@@ -1,9 +1,10 @@
-## Interface: 11500
+## Interface: 11501
 ## Title: RuneSets
 ## Notes: Improvements to the Engraving Frame, Runesets
 ## IconTexture: Interface\Icons\INV_Misc_Rune_06
-## Version: 1.0.1
+## Version: 1.2.0
 ## SavedVariables: RuneSetsDB
+## OptionalDeps: Equipmate, ItemRack
 
 locales.lua
 embeds.xml
