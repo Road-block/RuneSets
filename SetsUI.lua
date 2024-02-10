@@ -104,11 +104,12 @@ f:RegisterEvent("RUNE_UPDATED")
 
 local function ResizeRuneButtons()
   RUNE_BUTTON_HEIGHT=20
-  EngravingFrame.scrollFrame.buttons[1]:SetHeight(20)
-  HybridScrollFrame_CreateButtons(EngravingFrame.scrollFrame, "RuneSpellButtonTemplate", 0, -1, "TOPLEFT", "TOPLEFT", 0, -1, "TOP", "BOTTOM")
+  EngravingFrame.scrollFrame.buttons[1]:SetHeight(RUNE_BUTTON_HEIGHT)
+  HybridScrollFrame_CreateButtons(EngravingFrame.scrollFrame, "RuneSpellButtonTemplate", 0, 0, "TOPLEFT", "TOPLEFT", 0, 0, "TOP", "BOTTOM")
   for i,button in pairs(EngravingFrame.scrollFrame.buttons) do
-    if button.icon then
+    if button.typeName then
       button.name:SetJustifyH("CENTER")
+      button.name:SetJustifyV("CENTER")
       button.icon:SetSize(18,18)
     end
     button:Hide()
@@ -137,7 +138,7 @@ local function Setup()
   end
   if not EngravingFrameCloseButton then
     EngravingFrameCloseButton=CreateFrame("Button","EngravingFrameCloseButton",EngravingFrame,"UIPanelCloseButton")
-    EngravingFrameCloseButton:SetPoint("TOPRIGHT",EngravingFrame.Border,"TOPRIGHT",0,0)
+    EngravingFrameCloseButton:SetPoint("TOPRIGHT",EngravingFrame.Border,"TOPRIGHT",0,-2)
     EngravingFrameCloseButton:SetFrameStrata("HIGH")
     EngravingFrameCloseButton:Raise()
     EngravingFrame:SetMovable(true)
@@ -150,6 +151,8 @@ local function Setup()
      EngravingFrame:StopMovingOrSizing()
     end)
     EngravingFrame:HookScript("OnShow",function(self)
+      EngravingFrameSearchBox:SetFrameStrata("HIGH")
+      EngravingFrameSearchBox:SetWidth(170)
       if CharacterFrame:IsShown() then
         EngravingFrame:StopMovingOrSizing()
         EngravingFrame:ClearAllPoints()
