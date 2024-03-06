@@ -85,6 +85,7 @@ addon.utils = {}
 addon.Frame = {}
 addon.Minimap = {}
 addon.SetButton = {}
+addon.runeCache = {}
 
 RuneSetsDB = RuneSetsDB or {["_edit"]=true,["_auto"]=true}
 
@@ -116,20 +117,28 @@ local function ResizeRuneButtons()
   end
 end
 
+local function CacheAllRunes()
+  C_Engraving.RefreshRunesList()
+  local allcategories = C_Engraving.GetRuneCategories(false,false)
+  for _, category in ipairs(allcategories) do
+    local runes = C_Engraving.GetRunesForCategory(category, false)
+    addon.runeCache[category] = addon.runeCache[category] or {}
+    for _,rune in pairs(runes) do
+      local runeid = rune.skillLineAbilityID
+      addon.runeCache[category][runeid]=rune
+    end
+  end
+end
+
 local function CacheRunes()
   C_Engraving.RefreshRunesList()
   local categories = C_Engraving.GetRuneCategories(false, true)
   for _, category in ipairs(categories) do
     local runes = C_Engraving.GetRunesForCategory(category, true)
   end
-end
-
-local function CacheAllRunes()
-  C_Engraving.RefreshRunesList()
-  local allcategories = C_Engraving.GetRuneCategories(false,false)
-  for _, category in ipairs(allcategories) do
-    local runes = C_Engraving.GetRunesForCategory(category, false)
-  end
+  C_Timer.After(5,function()
+    CacheAllRunes()
+  end)
 end
 
 local function Setup()
@@ -629,6 +638,49 @@ function addon.utils.EquipmentSetActive(setkey)
   end
   return false
 end
+function addon.utils.NoRunePrompt(slot)
+  local prompted
+  if HasAutomation() then
+    local statusChanged, newStatus = addon.utils.StatusChange()
+    prompted = AutomateSet(newStatus)
+  end
+  if not prompted then
+    -- filter to the missing slot to make it easier
+    C_Engraving.AddExclusiveCategoryFilter(slot)
+    C_Engraving.EnableEquippedFilter(false)
+    EngravingFrame_UpdateRuneList(_G["EngravingFrame"])
+    if not EngravingFrame:IsVisible() then
+      ToggleEngravingFrame()
+    end
+  end
+  RaidNotice_AddMessage(RaidBossEmoteFrame,format(L["New %s item equipped without a Rune"],slotid_to_name[slot]),ChatTypeInfo["SYSTEM"], 5)
+  addon.utils.Print(format(L["New %s item equipped without a Rune"],slotid_to_name[slot]))
+end
+function addon.utils.CheckRuneSlots(slot)
+  if slot then
+    local runeInfo = C_Engraving.GetRuneForEquipmentSlot(slot)
+    if not (runeInfo and runeInfo.skillLineAbilityID) then
+      local ownedSlotRunes = C_Engraving.GetRunesForCategory(slot, true) -- owned only
+      -- maybe we do a quickload popout down the road for now just show Engraving
+      if #ownedSlotRunes > 0 then
+        addon.utils.NoRunePrompt(slot)
+      end
+    end
+  else
+    for _,slot in ipairs(ordered_slots) do
+      local ownedSlotRunes = C_Engraving.GetRunesForCategory(slot, true) -- owned only
+      if #ownedSlotRunes > 0 then
+        local equipped = GetInventoryItemID("player", slot)
+        if equipped and not (GetInventoryItemBroken("player", slot)) then
+          local runeInfo = C_Engraving.GetRuneForEquipmentSlot(slot)
+          if not (runeInfo and runeInfo.skillLineAbilityID) then
+            addon.utils.NoRunePrompt(slot)
+          end
+        end
+      end
+    end
+  end
+end
 
 function addon:ADDON_LOADED(event,...)
   local name = ...
@@ -662,6 +714,7 @@ function addon:PLAYER_ENTERING_WORLD(event,...)
       AutomateSet(newStatus)
     end
   end
+  addon.utils.CheckRuneSlots()
 end
 
 function addon:ZONE_CHANGED_NEW_AREA(event,...)
@@ -691,30 +744,22 @@ end
 function addon:PLAYER_EQUIPMENT_CHANGED(event,...)
   local slot, emptied = ...
   if not emptied and slotid_to_icon[slot] then
-    local runeInfo = C_Engraving.GetRuneForEquipmentSlot(slot)
-    if not (runeInfo and runeInfo.skillLineAbilityID) then
-      local ownedSlotRunes = C_Engraving.GetRunesForCategory(slot, true) -- owned only
-      -- maybe we do a quickload popout down the road for now just show Engraving
-      if #ownedSlotRunes > 0 then
-        local prompted
-        if HasAutomation() then
-          local statusChanged, newStatus = addon.utils.StatusChange()
-          prompted = AutomateSet(newStatus)
-        end
-        if not prompted then
-          if not EngravingFrame:IsVisible() then
-            ToggleEngravingFrame()
-          end
-        end
-        RaidNotice_AddMessage(RaidBossEmoteFrame,format(L["New %s item equipped without a Rune"],slotid_to_name[slot]),ChatTypeInfo["SYSTEM"], 5)
-        addon.utils.Print(format(L["New %s item equipped without a Rune"],slotid_to_name[slot]))
-      end
-    end
+    addon.utils.CheckRuneSlots(slot)
   end
 end
 
 function addon:NEW_RECIPE_LEARNED(event,...)
-  local recipeID,recipeLevel,baseRecipeID = ...
+  local recipeID,recipeLevel,baseRecipeID = ... -- arguments undocumented, need to know if we can derive the slot
+  -- recipeID = temporary enchant spell fx https://www.wowhead.com/classic/spell=403470
+  -- no apparent link to rune properties, we might need a static mapping
+  -- other two arguments nil (1.15.1 build 53495)
+  if not recipeID then return end
+  local spellAsync = Spell:CreateFromSpellID(recipeID)
+  spellAsync:ContinueOnSpellLoad(function()
+    local name = spellAsync:GetSpellName()
+    if not name:match("^".._G.ENGRAVE) then return end
+    addon.utils.CheckRuneSlots()
+  end)
 end
 
 function addon.RunSet(set_id)
@@ -989,7 +1034,6 @@ function addon.Frame.Automate(self, arg1)
       for state,id in pairs(states) do
         if id == set_id then
           states[state]=arg1
-          break
         end
       end
       for id,equipset in pairs(equipstates) do

@@ -2,7 +2,7 @@
 ## Title: RuneSets
 ## Notes: Improvements to the Engraving Frame, Runesets
 ## IconTexture: Interface\Icons\INV_Misc_Rune_06
-## Version: 1.2.1
+## Version: 1.2.2
 ## SavedVariables: RuneSetsDB
 ## OptionalDeps: Equipmate, ItemRack
 
