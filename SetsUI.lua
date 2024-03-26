@@ -5,7 +5,7 @@ local LABEL_FONT_COLOR = CreateColor(0,128/255,128/255)
 addon._label = LABEL_FONT_COLOR:WrapTextInColorCode(addonName)
 local LDB = LibStub("LibDataBroker-1.1")
 local LDBIcon = LibStub("LibDBIcon-1.0")
-local LSFDD = LibStub("LibSFDropDown-1.4")
+local LSFDD = LibStub("LibSFDropDown-1.5")
 local RUNESET_BUTTON_HEIGHT = 40
 local MAX_RUNESETS = 10
 
@@ -30,26 +30,32 @@ local slotid_to_name = {
   [INVSLOT_OFFHAND] = INVTYPE_WEAPONOFFHAND,
   [INVSLOT_RANGED] = INVTYPE_RANGED,
   [INVSLOT_TABARD] = INVTYPE_TABARD,
-}
+} -- cloak + shoulder P4 (probably?)
 local slotid_to_icon = {
+  [INVSLOT_HEAD] = "iconHead", -- P3
   [INVSLOT_CHEST] = "iconChest",
-  [INVSLOT_WAIST] = "iconWaist",
+  [INVSLOT_WAIST] = "iconWaist", -- P2
   [INVSLOT_LEGS] = "iconLegs",
-  [INVSLOT_FEET] = "iconFeet",
+  [INVSLOT_FEET] = "iconFeet", -- P2
+  [INVSLOT_WRIST] = "iconWrists", -- P3
   [INVSLOT_HAND] = "iconHands",
 }
 local icon_to_tex = {
+  iconHead = 136516,
   iconChest = 136512,
   iconWaist = 136529,
   iconLegs = 136517,
   iconFeet = 136513,
+  iconWrists = 136530,
   iconHands = 136515,
 }
 local ordered_slots = {
+  INVSLOT_HEAD, -- 1
   INVSLOT_CHEST, -- 5
   INVSLOT_WAIST, -- 6
   INVSLOT_LEGS, -- 7
   INVSLOT_FEET, -- 8
+  INVSLOT_WRIST, -- 9
   INVSLOT_HAND, -- 10
 }
 local state_names = {
@@ -653,8 +659,8 @@ function addon.utils.NoRunePrompt(slot)
       ToggleEngravingFrame()
     end
   end
-  RaidNotice_AddMessage(RaidBossEmoteFrame,format(L["New %s item equipped without a Rune"],slotid_to_name[slot]),ChatTypeInfo["SYSTEM"], 5)
-  addon.utils.Print(format(L["New %s item equipped without a Rune"],slotid_to_name[slot]))
+  RaidNotice_AddMessage(RaidBossEmoteFrame,format(L["%s item equipped without a Rune"],slotid_to_name[slot]),ChatTypeInfo["SYSTEM"], 5)
+  addon.utils.Print(format(L["%s item equipped without a Rune"],slotid_to_name[slot]))
 end
 function addon.utils.CheckRuneSlots(slot)
   if slot then
@@ -758,7 +764,9 @@ function addon:NEW_RECIPE_LEARNED(event,...)
   spellAsync:ContinueOnSpellLoad(function()
     local name = spellAsync:GetSpellName()
     if not name:match("^".._G.ENGRAVE) then return end
-    addon.utils.CheckRuneSlots()
+    C_Timer.After(1.5, function()
+      addon.utils.CheckRuneSlots()
+    end)
   end)
 end
 

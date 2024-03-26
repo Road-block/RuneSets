@@ -6,10 +6,16 @@
 		<Size x="160" y="40"/>
 		<Layers>
 			<Layer level="OVERLAY">
-				<Texture name="$parentIconChest" file="Interface\PaperDoll\UI-PaperDoll-Slot-Chest" parentKey="iconChest" id="5">
+				<Texture name="$parentIconHead" file="Interface\PaperDoll\UI-PaperDoll-Slot-Head" parentKey="iconHead" id="1">
 					<Size x="18" y="18"/>
 					<Anchors>
 						<Anchor point="BOTTOMLEFT" x="2" y="2"/>
+					</Anchors>
+				</Texture>
+				<Texture name="$parentIconChest" file="Interface\PaperDoll\UI-PaperDoll-Slot-Chest" parentKey="iconChest" id="5">
+					<Size x="18" y="18"/>
+					<Anchors>
+						<Anchor point="BOTTOMLEFT" relativeTo="$parentIconHead" relativePoint="BOTTOMRIGHT" x="2" y="0"/>
 					</Anchors>
 				</Texture>
 				<Texture name="$parentIconWaist" file="Interface\PaperDoll\UI-PaperDoll-Slot-Waist" parentKey="iconWaist" id="6">
@@ -30,10 +36,16 @@
 						<Anchor point="BOTTOMLEFT" relativeTo="$parentIconLegs" relativePoint="BOTTOMRIGHT" x="2" y="0"/>
 					</Anchors>
 				</Texture>
-				<Texture name="$parentIconHands" file="Interface\PaperDoll\UI-PaperDoll-Slot-Hands" parentKey="iconHands" id="10">
+				<Texture name="$parentIconWrists" file="Interface\PaperDoll\UI-PaperDoll-Slot-Wrists" parentKey="iconWrists" id="9">
 					<Size x="18" y="18"/>
 					<Anchors>
 						<Anchor point="BOTTOMLEFT" relativeTo="$parentIconFeet" relativePoint="BOTTOMRIGHT" x="2" y="0"/>
+					</Anchors>
+				</Texture>
+				<Texture name="$parentIconHands" file="Interface\PaperDoll\UI-PaperDoll-Slot-Hands" parentKey="iconHands" id="10">
+					<Size x="18" y="18"/>
+					<Anchors>
+						<Anchor point="BOTTOMLEFT" relativeTo="$parentIconWrists" relativePoint="BOTTOMRIGHT" x="2" y="0"/>
 					</Anchors>
 				</Texture>
 				<Texture name="$parentIconPlay" file="Interface\COMMON\CommonIcons" parentKey="iconPlay">
