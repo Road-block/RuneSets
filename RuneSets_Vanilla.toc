@@ -1,8 +1,8 @@
-## Interface: 11501
+## Interface: 11502
 ## Title: RuneSets
 ## Notes: Improvements to the Engraving Frame, Runesets
 ## IconTexture: Interface\Icons\INV_Misc_Rune_06
-## Version: 1.2.3
+## Version: 1.2.4
 ## SavedVariables: RuneSetsDB
 ## OptionalDeps: Equipmate, ItemRack
 

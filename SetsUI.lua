@@ -33,30 +33,36 @@ local slotid_to_name = {
 } -- cloak + shoulder P4 (probably?)
 local slotid_to_icon = {
   [INVSLOT_HEAD] = "iconHead", -- P3
+  [INVSLOT_SHOULDER] = "iconShoulders", -- P4
   [INVSLOT_CHEST] = "iconChest",
   [INVSLOT_WAIST] = "iconWaist", -- P2
   [INVSLOT_LEGS] = "iconLegs",
   [INVSLOT_FEET] = "iconFeet", -- P2
   [INVSLOT_WRIST] = "iconWrists", -- P3
   [INVSLOT_HAND] = "iconHands",
+  [INVSLOT_BACK] = "iconBack", -- P4
 }
 local icon_to_tex = {
   iconHead = 136516,
+  iconShoulders = 136526,
   iconChest = 136512,
   iconWaist = 136529,
   iconLegs = 136517,
   iconFeet = 136513,
   iconWrists = 136530,
   iconHands = 136515,
+  iconBack = 136512, -- yep same as chest for some reason
 }
 local ordered_slots = {
   INVSLOT_HEAD, -- 1
+  INVSLOT_SHOULDER, -- 3 -- P4
   INVSLOT_CHEST, -- 5
   INVSLOT_WAIST, -- 6
   INVSLOT_LEGS, -- 7
   INVSLOT_FEET, -- 8
   INVSLOT_WRIST, -- 9
   INVSLOT_HAND, -- 10
+  INVSLOT_BACK, -- 15
 }
 local state_names = {
   ["pvp"] = L["PvP"],
@@ -693,8 +699,10 @@ function addon:ADDON_LOADED(event,...)
   if name == addonName then
     if RuneSetsDB._auto then
       addon._event:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+      addon._event:RegisterEvent("NEW_RECIPE_LEARNED")
     else
       addon._event:UnregisterEvent("PLAYER_EQUIPMENT_CHANGED")
+      addon._event:UnregisterEvent("NEW_RECIPE_LEARNED")
     end
   end
   if name == "ItemRack" then
@@ -1105,19 +1113,23 @@ function addon.Frame.AutoClicked(self)
   addon.db._auto = self:GetChecked()
   if addon.db._auto then
     addon._event:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+    addon._event:RegisterEvent("NEW_RECIPE_LEARNED")
   else
     addon._event:UnregisterEvent("PLAYER_EQUIPMENT_CHANGED")
+    addon._event:UnregisterEvent("NEW_RECIPE_LEARNED")
   end
 end
 function addon.Frame.Expand(self)
-  self.collapsed = false;
+  self.collapsed = false
   self:SetPoint("TOPLEFT", EngravingFrame, "TOPRIGHT",15,0)
+  self.toggleButton:SetPoint("RIGHT", 20, 0)
   self.contentFrame:Show()
   self:Raise()
 end
 function addon.Frame.Collapse(self)
-  self.collapsed = true;
+  self.collapsed = true
   self:SetPoint("TOPLEFT", EngravingFrame, "TOPLEFT",0,0)
+  self.toggleButton:SetPoint("RIGHT", -12, 0)
   self.contentFrame:Hide()
   RuneSetsSetOptionFrame:Hide()
   self:Lower()
