@@ -752,6 +752,9 @@ function addon:RUNE_UPDATED(event,...)
   local rune = ...
   if EngravingFrame:IsVisible() then
     addon.Frame.UpdateSetList(RuneSetsFrame)
+    C_Timer.After(TOOLTIP_UPDATE_TIME,function()
+      addon.utils.CheckRuneSlots()
+    end)
   end
 end
 
