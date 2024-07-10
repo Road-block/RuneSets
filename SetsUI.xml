@@ -3,7 +3,7 @@
 	<Script file="SetsUI.lua"/>
 	
 	<Button name="RuneSetButtonTemplate" inherits="InsecureActionButtonTemplate" virtual="true">
-		<Size x="195" y="40"/>
+		<Size x="235" y="40"/>
 		<Layers>
 			<Layer level="OVERLAY">
 				<Texture name="$parentIconHead" file="Interface\PaperDoll\UI-PaperDoll-Slot-Head" parentKey="iconHead" id="1">
@@ -54,10 +54,22 @@
 						<Anchor point="BOTTOMLEFT" relativeTo="$parentIconWrists" relativePoint="BOTTOMRIGHT" x="2" y="0"/>
 					</Anchors>
 				</Texture>
-				<Texture name="$parentIconHands" file="Interface\PaperDoll\UI-PaperDoll-Slot-Chest" parentKey="iconBack" id="15">
+				<Texture name="$parentIconFinger" file="Interface\PaperDoll\UI-PaperDoll-Slot-Finger" parentKey="iconFinger" id="11">
 					<Size x="18" y="18"/>
 					<Anchors>
 						<Anchor point="BOTTOMLEFT" relativeTo="$parentIconHands" relativePoint="BOTTOMRIGHT" x="2" y="0"/>
+					</Anchors>
+				</Texture>
+				<Texture name="$parentIconBack" file="Interface\PaperDoll\UI-PaperDoll-Slot-Chest" parentKey="iconBack" id="15">
+					<Size x="18" y="18"/>
+					<Anchors>
+						<Anchor point="BOTTOMLEFT" relativeTo="$parentIconFinger" relativePoint="BOTTOMRIGHT" x="2" y="0"/>
+					</Anchors>
+				</Texture>
+				<Texture name="$parentIconMainHand" file="Interface\PaperDoll\UI-PaperDoll-Slot-MainHand" parentKey="iconMainHand" id="16">
+					<Size x="18" y="18"/>
+					<Anchors>
+						<Anchor point="BOTTOMLEFT" relativeTo="$parentIconBack" relativePoint="BOTTOMRIGHT" x="2" y="0"/>
 					</Anchors>
 				</Texture>
 				<Texture name="$parentIconPlay" file="Interface\COMMON\CommonIcons" parentKey="iconPlay">
@@ -326,7 +338,7 @@
   </Frame>
 
 	<Frame name="RuneSetsFrame" toplevel="true" parent="UIParent" movable="true" enableMouse="true" hidden="true">
-		<Size x="225" y="355"/>
+		<Size x="265" y="355"/>
 		<Anchors>
 			<Anchor point="CENTER" relativeTo="UIParent" relativePoint="CENTER">
 				<Offset>
@@ -361,7 +373,7 @@
 						<Layers>
 							<Layer level="BACKGROUND">
 								<Texture name="$parentBackground" file="Interface\TalentFrame\glyph-side-bg">
-									<Size x="200" y="351"/>
+									<Size x="240" y="351"/>
 									<Anchors>
 										<Anchor point="TOPLEFT" x="2" y="-2"/>
 									</Anchors>
@@ -371,7 +383,7 @@
 						</Layers>
 					</Frame>
 					<ScrollFrame name="$parentScrollFrame" inherits="HybridScrollFrameTemplate" parentKey="scrollFrame">
-						<Size x="217" y="355"/>
+						<Size x="257" y="355"/>
 							<Anchors>
 							<Anchor point="TOPLEFT" relativeTo="$parentSideInset" x="5" y="-3"/>
 							<Anchor point="BOTTOMRIGHT" relativeTo="$parentSideInset" x="-21" y="2"/>
