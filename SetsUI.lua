@@ -737,7 +737,9 @@ function addon:PLAYER_ENTERING_WORLD(event,...)
       AutomateSet(newStatus)
     end
   end
-  addon.utils.CheckRuneSlots()
+  C_Timer.After(10, function()
+    addon.utils.CheckRuneSlots()
+  end)
 end
 
 function addon:ZONE_CHANGED_NEW_AREA(event,...)
