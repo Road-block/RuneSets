@@ -679,23 +679,27 @@ function addon.utils.NoRunePrompt(slot)
 end
 function addon.utils.CheckRuneSlots(slot)
   if slot then
-    local runeInfo = C_Engraving.GetRuneForEquipmentSlot(slot)
-    if not (runeInfo and runeInfo.skillLineAbilityID) then
-      local ownedSlotRunes = C_Engraving.GetRunesForCategory(slot, true) -- owned only
-      -- maybe we do a quickload popout down the road for now just show Engraving
-      if #ownedSlotRunes > 0 then
-        addon.utils.NoRunePrompt(slot)
+    if C_Engraving.IsEquipmentSlotEngravable(slot) then
+      local runeInfo = C_Engraving.GetRuneForEquipmentSlot(slot)
+      if not (runeInfo and runeInfo.skillLineAbilityID) then
+        local ownedSlotRunes = C_Engraving.GetRunesForCategory(slot, true) -- owned only
+        -- maybe we do a quickload popout down the road for now just show Engraving
+        if #ownedSlotRunes > 0 then
+          addon.utils.NoRunePrompt(slot)
+        end
       end
     end
   else
     for _,slot in ipairs(ordered_slots) do
-      local ownedSlotRunes = C_Engraving.GetRunesForCategory(slot, true) -- owned only
-      if #ownedSlotRunes > 0 then
-        local equipped = GetInventoryItemID("player", slot)
-        if equipped and not (GetInventoryItemBroken("player", slot)) then
-          local runeInfo = C_Engraving.GetRuneForEquipmentSlot(slot)
-          if not (runeInfo and runeInfo.skillLineAbilityID) then
-            addon.utils.NoRunePrompt(slot)
+      if C_Engraving.IsEquipmentSlotEngravable(slot) then
+        local ownedSlotRunes = C_Engraving.GetRunesForCategory(slot, true) -- owned only
+        if #ownedSlotRunes > 0 then
+          local equipped = GetInventoryItemID("player", slot)
+          if equipped and not (GetInventoryItemBroken("player", slot)) then
+            local runeInfo = C_Engraving.GetRuneForEquipmentSlot(slot)
+            if not (runeInfo and runeInfo.skillLineAbilityID) then
+              addon.utils.NoRunePrompt(slot)
+            end
           end
         end
       end
