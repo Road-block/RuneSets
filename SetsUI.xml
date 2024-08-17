@@ -60,10 +60,16 @@
 						<Anchor point="BOTTOMLEFT" relativeTo="$parentIconHands" relativePoint="BOTTOMRIGHT" x="2" y="0"/>
 					</Anchors>
 				</Texture>
-				<Texture name="$parentIconBack" file="Interface\PaperDoll\UI-PaperDoll-Slot-Chest" parentKey="iconBack" id="15">
+				<Texture name="$parentIconFinger2" file="Interface\PaperDoll\UI-PaperDoll-Slot-Finger" parentKey="iconFinger2" id="12">
 					<Size x="18" y="18"/>
 					<Anchors>
 						<Anchor point="BOTTOMLEFT" relativeTo="$parentIconFinger" relativePoint="BOTTOMRIGHT" x="2" y="0"/>
+					</Anchors>
+				</Texture>
+				<Texture name="$parentIconBack" file="Interface\PaperDoll\UI-PaperDoll-Slot-Chest" parentKey="iconBack" id="15">
+					<Size x="18" y="18"/>
+					<Anchors>
+						<Anchor point="BOTTOMLEFT" relativeTo="$parentIconFinger2" relativePoint="BOTTOMRIGHT" x="2" y="0"/>
 					</Anchors>
 				</Texture>
 				<Texture name="$parentIconMainHand" file="Interface\PaperDoll\UI-PaperDoll-Slot-MainHand" parentKey="iconMainHand" id="16">

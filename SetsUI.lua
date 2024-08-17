@@ -42,7 +42,7 @@ local slotid_to_icon = {
   [INVSLOT_HAND] = "iconHands",
   [INVSLOT_BACK] = "iconBack", -- P4
   [INVSLOT_FINGER1] = "iconFinger", -- P4
-  [INVSLOT_FINGER2] = "iconFinger", -- P4
+  [INVSLOT_FINGER2] = "iconFinger2", -- P4
   [INVSLOT_MAINHAND] = "iconMainHand" -- P5?
 }
 local icon_to_tex = {
@@ -56,7 +56,7 @@ local icon_to_tex = {
   iconHands = 136515,
   iconBack = 136512, -- yep same as chest for some reason
   iconFinger = 136514,
-  --iconFinger2 = 136523,
+  iconFinger2 = 136523,
   iconMainHand = 136518,
 }
 local ordered_slots = {
