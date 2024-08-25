@@ -199,9 +199,11 @@ local function Setup()
     if button == "RightButton" then
       local castInfo = C_Engraving.GetCurrentRuneCast()
       if castInfo and castInfo.equipmentSlot then
+        slot = castInfo.equipmentSlot
+        if slot == INVSLOT_MAINHAND then slot = INVSLOT_BACK end
         addon._isEngraving = true
         addon.utils.Suppress(addon._isEngraving)
-        UseInventoryItem(castInfo.equipmentSlot, "player")
+        UseInventoryItem(slot, "player")
         local dialog = StaticPopup_FindVisible("REPLACE_ENCHANT")
         if dialog then
           _G[dialog:GetName().."Button1"]:Click()
@@ -822,9 +824,11 @@ function addon.RunSet(set_id)
         C_Engraving.CastRune(skillLineAbilityID)
         local castInfo = C_Engraving.GetCurrentRuneCast()
         if castInfo and castInfo.equipmentSlot then
+          slot = castInfo.equipmentSlot
+          if slot == INVSLOT_MAINHAND then slot = INVSLOT_BACK end
           addon._isEngraving = true
           addon.utils.Suppress(addon._isEngraving)
-          UseInventoryItem(castInfo.equipmentSlot, "player")
+          UseInventoryItem(slot, "player")
           local dialog = StaticPopup_FindVisible("REPLACE_ENCHANT")
           if dialog then
             _G[dialog:GetName().."Button1"]:Click()
@@ -909,6 +913,8 @@ function addon.SetButton.PreClick(self, button)
   if castInfo and castInfo.equipmentSlot then
     local setID = self:GetID()
     local slot = castInfo.equipmentSlot
+    if slot == INVSLOT_MAINHAND then slot = INVSLOT_BACK end
+    if slot == INVSLOT_FINGER1 and button == "RightButton" then slot = INVSLOT_FINGER2 end
     local skillLineAbilityID = castInfo.skillLineAbilityID
     local name = castInfo.name
     local icon = castInfo.iconTexture
@@ -934,9 +940,11 @@ function addon.SetButton.PostClick(self, button)
         C_Engraving.CastRune(skillLineAbilityID)
         local castInfo = C_Engraving.GetCurrentRuneCast()
         if castInfo and castInfo.equipmentSlot then
+          slot = castInfo.equipmentSlot
+          if slot == INVSLOT_MAINHAND then slot = INVSLOT_BACK end
           addon._isEngraving = true
           addon.utils.Suppress(addon._isEngraving)
-          UseInventoryItem(castInfo.equipmentSlot, "player")
+          UseInventoryItem(slot, "player")
           local dialog = StaticPopup_FindVisible("REPLACE_ENCHANT")
           if dialog then
             _G[dialog:GetName().."Button1"]:Click()
