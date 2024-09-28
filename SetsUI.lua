@@ -7,7 +7,7 @@ local LDB = LibStub("LibDataBroker-1.1")
 local LDBIcon = LibStub("LibDBIcon-1.0")
 local LSFDD = LibStub("LibSFDropDown-1.5")
 local RUNESET_BUTTON_HEIGHT = 40
-local MAX_RUNESETS = 10
+local MAX_RUNESETS = 12
 
 local slotid_to_name = {
   [INVSLOT_AMMO] = INVTYPE_AMMO,
@@ -21,10 +21,10 @@ local slotid_to_name = {
   [INVSLOT_FEET] = INVTYPE_FEET,
   [INVSLOT_WRIST] = INVTYPE_WRIST,
   [INVSLOT_HAND] = INVTYPE_HAND,
-  [INVSLOT_FINGER1] = INVTYPE_FINGER,
-  [INVSLOT_FINGER2] = INVTYPE_FINGER,
-  [INVSLOT_TRINKET1] = INVTYPE_TRINKET,
-  [INVSLOT_TRINKET2] = INVTYPE_TRINKET,
+  [INVSLOT_FINGER1] = INVTYPE_FINGER.."1",
+  [INVSLOT_FINGER2] = INVTYPE_FINGER.."2",
+  [INVSLOT_TRINKET1] = INVTYPE_TRINKET.."1",
+  [INVSLOT_TRINKET2] = INVTYPE_TRINKET.."2",
   [INVSLOT_BACK] = INVTYPE_CLOAK,
   [INVSLOT_MAINHAND] = INVTYPE_WEAPONMAINHAND,
   [INVSLOT_OFFHAND] = INVTYPE_WEAPONOFFHAND,
@@ -102,11 +102,14 @@ local defaults = {
 
     }
   }
+local atlasLMB = (C_Texture.GetAtlasInfo("newplayertutorial-icon-mouse-leftbutton")) and CreateAtlasMarkup("newplayertutorial-icon-mouse-leftbutton") or KEY_BUTTON1
+local atlasRMB = (C_Texture.GetAtlasInfo("newplayertutorial-icon-mouse-rightbutton")) and CreateAtlasMarkup("newplayertutorial-icon-mouse-rightbutton") or KEY_BUTTON2
 addon.utils = {}
 addon.Frame = {}
 addon.Minimap = {}
 addon.SetButton = {}
 addon.runeCache = {}
+addon.runeLookup = {}
 
 RuneSetsDB = RuneSetsDB or {["_edit"]=true,["_auto"]=true}
 
@@ -147,6 +150,7 @@ local function CacheAllRunes()
     for _,rune in pairs(runes) do
       local runeid = rune.skillLineAbilityID
       addon.runeCache[category][runeid]=rune
+      addon.runeLookup[runeid]={slot=category,data=rune}
     end
   end
 end
@@ -196,12 +200,17 @@ local function Setup()
   EngravingFrameSpell_OnClick = function(self, button)
     if InCombatLockdown() then return end
     C_Engraving.CastRune(self.skillLineAbilityID)
-    if button == "RightButton" then
+    if IsModifierKeyDown() then return end
+    if (button == "LeftButton") or (button == "RightButton") then
       local castInfo = C_Engraving.GetCurrentRuneCast()
-      if castInfo and castInfo.equipmentSlot then
+      local equipmentSlot = castInfo and castInfo.equipmentSlot
+      if equipmentSlot then
+        if button == "RightButton" and (equipmentSlot==INVSLOT_FINGER1 or equipmentSlot==INVSLOT_TRINKET1) then
+          equipmentSlot = equipmentSlot+1
+        end
         addon._isEngraving = true
         addon.utils.Suppress(addon._isEngraving)
-        UseInventoryItem(castInfo.equipmentSlot, "player")
+        UseInventoryItem(equipmentSlot, "player")
         local dialog = StaticPopup_FindVisible("REPLACE_ENCHANT")
         if dialog then
           _G[dialog:GetName().."Button1"]:Click()
@@ -220,8 +229,23 @@ local function Setup()
       end
     end
   end)
-  hooksecurefunc(GameTooltip,"SetEngravingRune",function(self)
-    GameTooltip:AddLine(GREEN_FONT_COLOR:WrapTextInColorCode(L["<Right-Click to Quick Apply>"]))
+  hooksecurefunc(GameTooltip,"SetEngravingRune",function(self, skillLineAbilityID)
+    local runeInfo
+    if skillLineAbilityID then
+      runeInfo = addon.runeLookup[skillLineAbilityID]
+    end
+    if runeInfo and runeInfo.slot then
+      local altSlotName
+      if runeInfo.slot == INVSLOT_FINGER1 then
+        altSlotName = slotid_to_name[INVSLOT_FINGER2]
+      elseif runeInfo.slot == INVSLOT_TRINKET1 then
+        altSlotName = slotid_to_name[INVSLOT_TRINKET2]
+      end
+      if altSlotName then
+        GameTooltip:AddLine(GREEN_FONT_COLOR:WrapTextInColorCode(format(L["<Right-Click to %s %s>"],_G.ENGRAVE,altSlotName)))
+      end
+    end
+    GameTooltip:AddLine(ORANGE_FONT_COLOR:WrapTextInColorCode(L["<Modified-Click to Load on Cursor>"]))
   end)
 end
 
@@ -821,10 +845,14 @@ function addon.RunSet(set_id)
       if not C_Engraving.IsRuneEquipped(skillLineAbilityID) then
         C_Engraving.CastRune(skillLineAbilityID)
         local castInfo = C_Engraving.GetCurrentRuneCast()
-        if castInfo and castInfo.equipmentSlot then
+        local equipmentSlot = castInfo and castInfo.equipmentSlot
+        if equipmentSlot then
           addon._isEngraving = true
           addon.utils.Suppress(addon._isEngraving)
-          UseInventoryItem(castInfo.equipmentSlot, "player")
+          if equipmentSlot ~= slot then
+            equipmentSlot = slot
+          end
+          UseInventoryItem(equipmentSlot, "player")
           local dialog = StaticPopup_FindVisible("REPLACE_ENCHANT")
           if dialog then
             _G[dialog:GetName().."Button1"]:Click()
@@ -843,8 +871,13 @@ function addon.SetButton.OnEnter(self)
   GameTooltip:SetText(addon._label)
   local sets = addon.db[addon._playerKey].sets
   if addon.db._edit then
-    GameTooltip:AddLine(L["Click runes on the left then click on this button to store them"],nil,nil,nil,true)
-    GameTooltip:AddLine(L["Double-click the Set name to edit"],nil,nil,nil,true)
+    local r,g,b = ORANGE_FONT_COLOR:GetRGB()
+    GameTooltip:AddLine(L["<Modified-Click> on the left to load a Rune"],r,g,b,false)
+    GameTooltip:AddLine(format(L["Drop it with %s for unique or primary slot"],atlasLMB),nil,nil,nil,false)
+    GameTooltip:AddLine(format(L["Drop it with %s for alternate slot (e.g. Finger2)"],atlasRMB),nil,nil,nil,true)
+    GameTooltip:AddLine(" ")
+    r,g,b = GREEN_FONT_COLOR:GetRGB()
+    GameTooltip:AddLine(L["Double-click the |cffffffffSet Label|r to edit Name"],r,g,b,true)
   else
     GameTooltip:AddLine(L["Click to apply Set Runes"])
     local set_id = self:GetID()
@@ -906,12 +939,21 @@ function addon.SetButton.PreClick(self, button)
   if not addon.db._edit then return end
   local castInfo = C_Engraving.GetCurrentRuneCast()
   local sets = addon.db[addon._playerKey].sets
-  if castInfo and castInfo.equipmentSlot then
+  local equipmentSlot = castInfo and castInfo.equipmentSlot
+  if equipmentSlot then
     local setID = self:GetID()
-    local slot = castInfo.equipmentSlot
     local skillLineAbilityID = castInfo.skillLineAbilityID
     local name = castInfo.name
     local icon = castInfo.iconTexture
+    local slot = equipmentSlot
+    if button == "RightButton" then
+      if slot == INVSLOT_FINGER1 then
+        slot = INVSLOT_FINGER2
+      end
+      if slot == "INVSLOT_TRINKET1" then
+        slot = INVSLOT_TRINKET2
+      end
+    end
     self[slotid_to_icon[slot]]:SetTexture(icon)
     sets[setID] = sets[setID] or {name = L["<empty RuneSet>"], runes = {}}
     sets[setID].runes[slot] = {skillLineAbilityID,icon,name}
@@ -933,10 +975,14 @@ function addon.SetButton.PostClick(self, button)
       if not C_Engraving.IsRuneEquipped(skillLineAbilityID) then
         C_Engraving.CastRune(skillLineAbilityID)
         local castInfo = C_Engraving.GetCurrentRuneCast()
-        if castInfo and castInfo.equipmentSlot then
+        local equipmentSlot = castInfo and castInfo.equipmentSlot
+        if equipmentSlot then
           addon._isEngraving = true
           addon.utils.Suppress(addon._isEngraving)
-          UseInventoryItem(castInfo.equipmentSlot, "player")
+          if equipmentSlot ~= slot then
+            equipmentSlot = slot
+          end
+          UseInventoryItem(equipmentSlot, "player")
           local dialog = StaticPopup_FindVisible("REPLACE_ENCHANT")
           if dialog then
             _G[dialog:GetName().."Button1"]:Click()

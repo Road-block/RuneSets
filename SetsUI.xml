@@ -344,7 +344,7 @@
   </Frame>
 
 	<Frame name="RuneSetsFrame" toplevel="true" parent="UIParent" movable="true" enableMouse="true" hidden="true">
-		<Size x="265" y="355"/>
+		<Size x="265" y="348"/>
 		<Anchors>
 			<Anchor point="CENTER" relativeTo="UIParent" relativePoint="CENTER">
 				<Offset>
@@ -379,7 +379,7 @@
 						<Layers>
 							<Layer level="BACKGROUND">
 								<Texture name="$parentBackground" file="Interface\TalentFrame\glyph-side-bg">
-									<Size x="240" y="351"/>
+									<Size x="240" y="344"/>
 									<Anchors>
 										<Anchor point="TOPLEFT" x="2" y="-2"/>
 									</Anchors>
@@ -389,7 +389,7 @@
 						</Layers>
 					</Frame>
 					<ScrollFrame name="$parentScrollFrame" inherits="HybridScrollFrameTemplate" parentKey="scrollFrame">
-						<Size x="257" y="355"/>
+						<Size x="257" y="348"/>
 							<Anchors>
 							<Anchor point="TOPLEFT" relativeTo="$parentSideInset" x="5" y="-3"/>
 							<Anchor point="BOTTOMRIGHT" relativeTo="$parentSideInset" x="-21" y="2"/>
