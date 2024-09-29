@@ -8,7 +8,40 @@ local LDBIcon = LibStub("LibDBIcon-1.0")
 local LSFDD = LibStub("LibSFDropDown-1.5")
 local RUNESET_BUTTON_HEIGHT = 40
 local MAX_RUNESETS = 12
+local EnumInvType = Enum.InventoryType
 
+local slotid_to_invtype = {
+  [INVSLOT_HEAD] = EnumInvType.IndexHeadType,
+  [INVSLOT_NECK] = EnumInvType.IndexNeckType,
+  [INVSLOT_SHOULDER] = EnumInvType.IndexShoulderType,
+  [INVSLOT_CHEST] = EnumInvType.IndexChestType,
+  [INVSLOT_WAIST] = EnumInvType.IndexWaistType,
+  [INVSLOT_LEGS] = EnumInvType.IndexLegsType,
+  [INVSLOT_FEET] = EnumInvType.IndexFeetType,
+  [INVSLOT_WRIST] = EnumInvType.IndexWristType,
+  [INVSLOT_HAND] = EnumInvType.IndexHandType,
+  [INVSLOT_FINGER1] = EnumInvType.IndexFingerType,
+  [INVSLOT_TRINKET1] = EnumInvType.IndexTrinketType,
+  [INVSLOT_BACK] = EnumInvType.IndexCloakType,
+  [INVSLOT_MAINHAND] = EnumInvType.IndexWeaponmainhandType,
+  [INVSLOT_OFFHAND] = EnumInvType.IndexWeaponoffhandType,
+}
+local invtype_to_slotid = {
+  [EnumInvType.IndexHeadType] = INVSLOT_HEAD,
+  [EnumInvType.IndexNeckType] = INVSLOT_NECK,
+  [EnumInvType.IndexShoulderType] = INVSLOT_SHOULDER,
+  [EnumInvType.IndexChestType] = INVSLOT_CHEST,
+  [EnumInvType.IndexWaistType] = INVSLOT_WAIST,
+  [EnumInvType.IndexLegsType] = INVSLOT_LEGS,
+  [EnumInvType.IndexFeetType] = INVSLOT_FEET,
+  [EnumInvType.IndexWristType] = INVSLOT_WRIST,
+  [EnumInvType.IndexHandType] = INVSLOT_HAND,
+  [EnumInvType.IndexFingerType] = INVSLOT_FINGER1,
+  [EnumInvType.IndexTrinketType] = INVSLOT_TRINKET1,
+  [EnumInvType.IndexCloakType] = INVSLOT_BACK,
+  [EnumInvType.IndexWeaponmainhandType] = INVSLOT_MAINHAND,
+  [EnumInvType.IndexWeaponoffhandType] = INVSLOT_OFFHAND,
+}
 local slotid_to_name = {
   [INVSLOT_AMMO] = INVTYPE_AMMO,
   [INVSLOT_HEAD] = INVTYPE_HEAD,
@@ -143,14 +176,17 @@ end
 
 local function CacheAllRunes()
   C_Engraving.RefreshRunesList()
-  local allcategories = C_Engraving.GetRuneCategories(false,false)
-  for _, category in ipairs(allcategories) do
-    local runes = C_Engraving.GetRunesForCategory(category, false)
-    addon.runeCache[category] = addon.runeCache[category] or {}
+  local allcategories = C_Engraving.GetRuneCategories(false,false) -- returns Enum.InventoryType.<InvSlot>
+  for _, invType in ipairs(allcategories) do
+    local runes = C_Engraving.GetRunesForCategory(invType, false)
+    -- translate from invType to equipSlot before storing
+    -- as we use these for application which is done by equipSlot
+    local equipSlot = invtype_to_slotid[invType] or invType
+    addon.runeCache[equipSlot] = addon.runeCache[equipSlot] or {}
     for _,rune in pairs(runes) do
       local runeid = rune.skillLineAbilityID
-      addon.runeCache[category][runeid]=rune
-      addon.runeLookup[runeid]={slot=category,data=rune}
+      addon.runeCache[equipSlot][runeid]=rune
+      addon.runeLookup[runeid]={slot=equipSlot,data=rune}
     end
   end
 end
@@ -158,8 +194,8 @@ end
 local function CacheRunes()
   C_Engraving.RefreshRunesList()
   local categories = C_Engraving.GetRuneCategories(false, true)
-  for _, category in ipairs(categories) do
-    local runes = C_Engraving.GetRunesForCategory(category, true)
+  for _, invType in ipairs(categories) do
+    local runes = C_Engraving.GetRunesForCategory(invType, true)
   end
   C_Timer.After(5,function()
     CacheAllRunes()
@@ -187,6 +223,7 @@ local function Setup()
     EngravingFrame:HookScript("OnShow",function(self)
       EngravingFrameSearchBox:SetFrameStrata("HIGH")
       EngravingFrameSearchBox:SetWidth(170)
+      EngravingFrame.FilterDropdown:SetFrameStrata("HIGH")
       if CharacterFrame:IsShown() then
         EngravingFrame:StopMovingOrSizing()
         EngravingFrame:ClearAllPoints()
@@ -202,15 +239,21 @@ local function Setup()
     C_Engraving.CastRune(self.skillLineAbilityID)
     if IsModifierKeyDown() then return end
     if (button == "LeftButton") or (button == "RightButton") then
-      local castInfo = C_Engraving.GetCurrentRuneCast()
-      local equipmentSlot = castInfo and castInfo.equipmentSlot
-      if equipmentSlot then
-        if button == "RightButton" and (equipmentSlot==INVSLOT_FINGER1 or equipmentSlot==INVSLOT_TRINKET1) then
-          equipmentSlot = equipmentSlot+1
+      local castInfo = C_Engraving.GetCurrentRuneCast() -- returns Enum.InventoryType.<InvSlot>
+      local invType = castInfo and castInfo.equipmentSlot
+      if invType then
+        local equipSlot = invtype_to_slotid[invType] or invType
+        if button == "RightButton" then
+          if equipSlot == INVSLOT_FINGER1 then
+            equipSlot = INVSLOT_FINGER2
+          elseif equipSlot == INVSLOT_TRINKET1 then
+            equipSlot = INVSLOT_TRINKET2
+          end
         end
         addon._isEngraving = true
         addon.utils.Suppress(addon._isEngraving)
-        UseInventoryItem(equipmentSlot, "player")
+        -- translate invSlot to equipSlot before applying
+        UseInventoryItem(equipSlot, "player")
         local dialog = StaticPopup_FindVisible("REPLACE_ENCHANT")
         if dialog then
           _G[dialog:GetName().."Button1"]:Click()
@@ -506,10 +549,10 @@ function addon.utils.FirstMatchedSet()
   if not sets or #sets==0 then return false end
   local own = {}
   local matched
-  for _,slot in ipairs(ordered_slots) do
-    if C_Engraving.IsEquipmentSlotEngravable(slot) then
-      local runeInfo = C_Engraving.GetRuneForEquipmentSlot(slot)
-      own[slot] = runeInfo and runeInfo.skillLineAbilityID or nil
+  for _,equipSlot in ipairs(ordered_slots) do
+    if C_Engraving.IsEquipmentSlotEngravable(equipSlot) then -- uses equipSlot
+      local runeInfo = C_Engraving.GetRuneForEquipmentSlot(equipSlot) -- also uses equipSlot, runeInfo.equipmentSlot corresponds to invType
+      own[equipSlot] = runeInfo and runeInfo.skillLineAbilityID or nil
     end
   end
   if addon.utils.tCount(own) > 0 then
@@ -517,8 +560,8 @@ function addon.utils.FirstMatchedSet()
     for set_id, set in pairs(sets) do
       matched_id, matched_name = set_id, set.name
       local runes = set.runes
-      for slot, runeid in pairs(own) do
-        if not runes[slot] or runes[slot][1] ~= runeid then
+      for equipSlot, runeid in pairs(own) do
+        if not runes[equipSlot] or runes[equipSlot][1] ~= runeid then
           matched_id, matched_name = nil, nil
           break
         end
@@ -553,8 +596,8 @@ function addon.utils.IsSetEquipped(set_query)
     local runes = set.runes
     local equiphash, sethash
     for _,slot in ipairs(ordered_slots) do
-      if C_Engraving.IsEquipmentSlotEngravable(slot) then
-        local runeInfo = C_Engraving.GetRuneForEquipmentSlot(slot)
+      if C_Engraving.IsEquipmentSlotEngravable(slot) then -- uses equipSlot
+        local runeInfo = C_Engraving.GetRuneForEquipmentSlot(slot) -- also uses equipSlot
         local runeid = runeInfo and runeInfo.skillLineAbilityID
         local setrune = runes[slot] and runes[slot][1]
         equiphash = equiphash and format("%s:%s",equiphash,(runeid or 0)) or tostring(runeid or 0)
@@ -683,7 +726,7 @@ function addon.utils.EquipmentSetActive(setkey)
   end
   return false
 end
-function addon.utils.NoRunePrompt(slot)
+function addon.utils.NoRunePrompt(equipSlot) -- we probably need to pass in invType
   local prompted
   if HasAutomation() then
     local statusChanged, newStatus = addon.utils.StatusChange()
@@ -691,38 +734,46 @@ function addon.utils.NoRunePrompt(slot)
   end
   if not prompted then
     -- filter to the missing slot to make it easier
-    C_Engraving.AddExclusiveCategoryFilter(slot)
+    -- needs translation equipSlot > invType
+    local invType = slotid_to_invtype[equipSlot] or equipSlot
+    C_Engraving.AddExclusiveCategoryFilter(invType) -- uses invType (?)
     C_Engraving.EnableEquippedFilter(false)
     EngravingFrame_UpdateRuneList(_G["EngravingFrame"])
     if not EngravingFrame:IsVisible() then
       ToggleEngravingFrame()
     end
   end
-  RaidNotice_AddMessage(RaidBossEmoteFrame,format(L["%s item equipped without a Rune"],slotid_to_name[slot]),ChatTypeInfo["SYSTEM"], 5)
-  addon.utils.Print(format(L["%s item equipped without a Rune"],slotid_to_name[slot]))
+  -- we need to translate back to equipSlot for the message
+  RaidNotice_AddMessage(RaidBossEmoteFrame,format(L["%s item equipped without a Rune"],slotid_to_name[equipSlot]),ChatTypeInfo["SYSTEM"], 5)
+  addon.utils.Print(format(L["%s item equipped without a Rune"],slotid_to_name[equipSlot]))
 end
-function addon.utils.CheckRuneSlots(slot)
-  if slot then
-    if C_Engraving.IsEquipmentSlotEngravable(slot) then
-      local runeInfo = C_Engraving.GetRuneForEquipmentSlot(slot)
+function addon.utils.CheckRuneSlots(equipSlot)
+  if equipSlot then
+    if C_Engraving.IsEquipmentSlotEngravable(equipSlot) then -- uses equipSlot
+      local runeInfo = C_Engraving.GetRuneForEquipmentSlot(equipSlot) -- also uses equipSlot
       if not (runeInfo and runeInfo.skillLineAbilityID) then
-        local ownedSlotRunes = C_Engraving.GetRunesForCategory(slot, true) -- owned only
+        -- need translation equipSlot > invType
+        local invType = slotid_to_invtype[equipSlot] or equipSlot
+        local ownedSlotRunes = C_Engraving.GetRunesForCategory(invType, true) -- owned only
         -- maybe we do a quickload popout down the road for now just show Engraving
         if #ownedSlotRunes > 0 then
-          addon.utils.NoRunePrompt(slot)
+          addon.utils.NoRunePrompt(equipSlot)
         end
       end
     end
   else
-    for _,slot in ipairs(ordered_slots) do
-      if C_Engraving.IsEquipmentSlotEngravable(slot) then
-        local ownedSlotRunes = C_Engraving.GetRunesForCategory(slot, true) -- owned only
+    for _,equipSlot in ipairs(ordered_slots) do
+      if C_Engraving.IsEquipmentSlotEngravable(equipSlot) then -- uses equipSlot
+        -- needs translation equipSlot > invType
+        local invType = slotid_to_invtype[equipSlot] or equipSlot
+        local ownedSlotRunes = C_Engraving.GetRunesForCategory(invType, true) -- owned only
         if #ownedSlotRunes > 0 then
-          local equipped = GetInventoryItemID("player", slot)
-          if equipped and not (GetInventoryItemBroken("player", slot)) then
-            local runeInfo = C_Engraving.GetRuneForEquipmentSlot(slot)
+          -- and back to equipSlot
+          local equipped = GetInventoryItemID("player", equipSlot)
+          if equipped and not (GetInventoryItemBroken("player", equipSlot)) then
+            local runeInfo = C_Engraving.GetRuneForEquipmentSlot(equipSlot) -- uses equipSlot
             if not (runeInfo and runeInfo.skillLineAbilityID) then
-              addon.utils.NoRunePrompt(slot)
+              addon.utils.NoRunePrompt(equipSlot)
             end
           end
         end
@@ -844,7 +895,7 @@ function addon.RunSet(set_id)
       local skillLineAbilityID = rune[1]
       if not C_Engraving.IsRuneEquipped(skillLineAbilityID) then
         C_Engraving.CastRune(skillLineAbilityID)
-        local castInfo = C_Engraving.GetCurrentRuneCast()
+        local castInfo = C_Engraving.GetCurrentRuneCast() -- returns invType in .equipmentSlot
         local equipmentSlot = castInfo and castInfo.equipmentSlot
         if equipmentSlot then
           addon._isEngraving = true
@@ -852,6 +903,7 @@ function addon.RunSet(set_id)
           if equipmentSlot ~= slot then
             equipmentSlot = slot
           end
+          -- translate invType > equipSlot
           UseInventoryItem(equipmentSlot, "player")
           local dialog = StaticPopup_FindVisible("REPLACE_ENCHANT")
           if dialog then
@@ -879,13 +931,15 @@ function addon.SetButton.OnEnter(self)
     r,g,b = GREEN_FONT_COLOR:GetRGB()
     GameTooltip:AddLine(L["Double-click the |cffffffffSet Label|r to edit Name"],r,g,b,true)
   else
-    GameTooltip:AddLine(L["Click to apply Set Runes"])
+    if self:IsEnabled() then
+      GameTooltip:AddLine(L["Click to apply Set Runes"])
+    end
     local set_id = self:GetID()
     if sets and #sets>0 then
       local runes = sets[set_id] and sets[set_id].runes
       if runes and addon.utils.tCount(runes)>0 then
         for _,slot in ipairs(ordered_slots) do
-          if C_Engraving.IsEquipmentSlotEngravable(slot) then
+          if C_Engraving.IsEquipmentSlotEngravable(slot) then -- uses equipSlot
             if runes[slot] then
               GameTooltip:AddLine(runes[slot][3],1,1,1)
             else
@@ -907,7 +961,7 @@ function addon.SetButton.ArrangeIcons(self)
   for _,slot in ipairs(ordered_slots) do
     local parentKey = slotid_to_icon[slot]
     local icon = self[parentKey]
-    if C_Engraving.IsEquipmentSlotEngravable(slot) then
+    if C_Engraving.IsEquipmentSlotEngravable(slot) then -- uses equipSlot
       icon:Show()
       icon:ClearAllPoints()
       icon:SetPoint("BOTTOMLEFT",relativeTo,relativePoint,x,y)
@@ -937,7 +991,7 @@ function addon.SetButton.IncludeOptionClicked(option)
 end
 function addon.SetButton.PreClick(self, button)
   if not addon.db._edit then return end
-  local castInfo = C_Engraving.GetCurrentRuneCast()
+  local castInfo = C_Engraving.GetCurrentRuneCast() -- returns invType in .equipmentSlot
   local sets = addon.db[addon._playerKey].sets
   local equipmentSlot = castInfo and castInfo.equipmentSlot
   if equipmentSlot then
@@ -945,6 +999,7 @@ function addon.SetButton.PreClick(self, button)
     local skillLineAbilityID = castInfo.skillLineAbilityID
     local name = castInfo.name
     local icon = castInfo.iconTexture
+    -- translate invType > equipSlot before storing as we're using it to apply later
     local slot = equipmentSlot
     if button == "RightButton" then
       if slot == INVSLOT_FINGER1 then
@@ -973,7 +1028,7 @@ function addon.SetButton.PostClick(self, button)
     for slot, rune in pairs(runes) do
       local skillLineAbilityID = rune[1]
       if not C_Engraving.IsRuneEquipped(skillLineAbilityID) then
-        C_Engraving.CastRune(skillLineAbilityID)
+        C_Engraving.CastRune(skillLineAbilityID) -- returns invType in .equipmentSlot
         local castInfo = C_Engraving.GetCurrentRuneCast()
         local equipmentSlot = castInfo and castInfo.equipmentSlot
         if equipmentSlot then
@@ -982,6 +1037,7 @@ function addon.SetButton.PostClick(self, button)
           if equipmentSlot ~= slot then
             equipmentSlot = slot
           end
+          -- translate invType > equipSlot
           UseInventoryItem(equipmentSlot, "player")
           local dialog = StaticPopup_FindVisible("REPLACE_ENCHANT")
           if dialog then
@@ -1358,5 +1414,9 @@ SlashCmdList["RUNESETS"] = function(msg)
   end
 end
 --[[
-option to show unlearned runes with action being a link to wowhead - for starters, maybe something in-game later
+Blizzard BUGs:
+C_Engraving.GetRunesForCategory(category) is using Enum.InventoryType (invType) values instead of equipSlot
+C_Engraving.GetCurrentRuneCast() is also using Enum.InventoryType (invType) values for .equipmentSlot member
+C_Engraving.IsEquipmentSlotEngravable(slot) uses equipSlot (same as paperdoll)
+C_Engraving.GetRuneForEquipmentSlot() also uses equipSlot (same as paperdoll) but runeInfo returned has invType value in .equipmentSlot member (wtf blizz)
 ]]
