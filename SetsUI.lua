@@ -896,15 +896,16 @@ function addon.RunSet(set_id)
       if not C_Engraving.IsRuneEquipped(skillLineAbilityID) then
         C_Engraving.CastRune(skillLineAbilityID)
         local castInfo = C_Engraving.GetCurrentRuneCast() -- returns invType in .equipmentSlot
-        local equipmentSlot = castInfo and castInfo.equipmentSlot
-        if equipmentSlot then
+        local invType = castInfo and castInfo.equipmentSlot
+        if invType then
           addon._isEngraving = true
           addon.utils.Suppress(addon._isEngraving)
-          if equipmentSlot ~= slot then
-            equipmentSlot = slot
+          local equipSlot = invtype_to_slotid[invType] or invType
+          if equipSlot ~= slot then
+            equipSlot = slot
           end
           -- translate invType > equipSlot
-          UseInventoryItem(equipmentSlot, "player")
+          UseInventoryItem(equipSlot, "player")
           local dialog = StaticPopup_FindVisible("REPLACE_ENCHANT")
           if dialog then
             _G[dialog:GetName().."Button1"]:Click()
@@ -993,25 +994,25 @@ function addon.SetButton.PreClick(self, button)
   if not addon.db._edit then return end
   local castInfo = C_Engraving.GetCurrentRuneCast() -- returns invType in .equipmentSlot
   local sets = addon.db[addon._playerKey].sets
-  local equipmentSlot = castInfo and castInfo.equipmentSlot
-  if equipmentSlot then
+  local invType = castInfo and castInfo.equipmentSlot
+  if invType then
     local setID = self:GetID()
     local skillLineAbilityID = castInfo.skillLineAbilityID
     local name = castInfo.name
     local icon = castInfo.iconTexture
     -- translate invType > equipSlot before storing as we're using it to apply later
-    local slot = equipmentSlot
+    local equipSlot = invtype_to_slotid[invType] or invType
     if button == "RightButton" then
-      if slot == INVSLOT_FINGER1 then
-        slot = INVSLOT_FINGER2
+      if equipSlot == INVSLOT_FINGER1 then
+        equipSlot = INVSLOT_FINGER2
       end
-      if slot == "INVSLOT_TRINKET1" then
-        slot = INVSLOT_TRINKET2
+      if equipSlot == INVSLOT_TRINKET1 then
+        equipSlot = INVSLOT_TRINKET2
       end
     end
-    self[slotid_to_icon[slot]]:SetTexture(icon)
+    self[slotid_to_icon[equipSlot]]:SetTexture(icon)
     sets[setID] = sets[setID] or {name = L["<empty RuneSet>"], runes = {}}
-    sets[setID].runes[slot] = {skillLineAbilityID,icon,name}
+    sets[setID].runes[equipSlot] = {skillLineAbilityID,icon,name}
     PlaySound(SOUNDKIT.IG_ABILITY_ICON_DROP)
     if sets[setID].includeInMenus == nil then -- respect false setting
       sets[setID].includeInMenus = true
@@ -1030,15 +1031,16 @@ function addon.SetButton.PostClick(self, button)
       if not C_Engraving.IsRuneEquipped(skillLineAbilityID) then
         C_Engraving.CastRune(skillLineAbilityID) -- returns invType in .equipmentSlot
         local castInfo = C_Engraving.GetCurrentRuneCast()
-        local equipmentSlot = castInfo and castInfo.equipmentSlot
-        if equipmentSlot then
+        local invType = castInfo and castInfo.equipmentSlot
+        if invType then
           addon._isEngraving = true
           addon.utils.Suppress(addon._isEngraving)
-          if equipmentSlot ~= slot then
-            equipmentSlot = slot
-          end
           -- translate invType > equipSlot
-          UseInventoryItem(equipmentSlot, "player")
+          local equipSlot = invtype_to_slotid[invType] or invType
+          if equipSlot ~= slot then
+            equipSlot = slot
+          end
+          UseInventoryItem(equipSlot, "player")
           local dialog = StaticPopup_FindVisible("REPLACE_ENCHANT")
           if dialog then
             _G[dialog:GetName().."Button1"]:Click()
