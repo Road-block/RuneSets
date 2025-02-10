@@ -1257,6 +1257,7 @@ function addon.Frame.Collapse(self)
   self:Lower()
 end
 function addon.Frame.UpdateSetList(self)
+  if not addon.db then return end -- something's forcing the character frame open before UI load
   local editmode = addon.db._edit
   local numSets = 0
   local scrollFrame = RuneSetsFrame.contentFrame.scrollFrame
